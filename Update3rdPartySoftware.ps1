@@ -85,7 +85,7 @@ $global:ErrorCount 				= 0
 $filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $logPath 						= Join-Path -Path "E:\UpdateScripts\Logs\Update3rdPartySoftware" -ChildPath "Update3rdPartySoftware_$($filetimestamp).log"
 $myToken 						= ""
-$userInput 							= ""
+$userInput 					    = ""
 $baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
 $baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
 #$updateOption 					= "API" # Defualt is API | Options: API or LOCAL
@@ -600,7 +600,7 @@ function Update-ChocoInstallationScript {
         [Parameter(Mandatory)] [string] $ProGetAssetDir,            # e.g. choco-assets
         [Parameter(Mandatory)] [string] $AssetFolderPath,           # e.g. NotepadPlusPlus/NotepadPlusPlus
         [Parameter(Mandatory)] [string] $InstallerFileName,         # e.g. NotepadPlusPlus_x64_8.9.exe
-        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu')] [string] $FileType,
+        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx')] [string] $FileType,
         [Parameter(Mandatory)] [ValidateSet('x64','x86')] [string] $Arch,
         [Parameter(Mandatory)] [string] $Sha                        
     )
@@ -765,17 +765,7 @@ if (-not (Get-Module -Name "powershell-yaml")) {
 }
 
 
-Write-Host -ForegroundColor Red "
-       .-://///:-.
-     -://:-...-//   .       
-    -///-         ///       EEEEEEE UU   UU RRRRRR   OOOOO  FFFFFFF UU   UU NN   NN KK  KK
-    ///:         :///       EE      UU   UU RR   RR OO   OO FF      UU   UU NNN  NN KK KK
-    ///:         :///       EEEEE   UU   UU RRRRRR  OO   OO FFFF    UU   UU NN N NN KKKK
-    -///-       -///-       EE      UU   UU RR  RR  OO   OO FF      UU   UU NN  NNN KK KK
-     -://:-...-://:-        EEEEEEE  UUUUU  RR   RR  OOOO0  FF       UUUUU  NN   NN KK  KK
-       *-://///:-*
-"
-	Write-Host -ForegroundColor Cyan "
+Write-Host -ForegroundColor Cyan "
     +----+ +----+     
     |####| |####|     
     |####| |####|       WW   WW II NN   NN DDDDD   OOOOO  WW   WW  SSSS
