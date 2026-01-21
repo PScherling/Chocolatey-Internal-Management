@@ -139,8 +139,8 @@ param(
     [Parameter(Mandatory)] [string] $SoftwareName,                                          # e.g. "NotepadPlusPlus"
     [Parameter(Mandatory = $false)] [ValidateSet('x64','x86')] [string] $Arch = "x86",      # e.g. "x64" | Default = "x86"
     [Parameter(Mandatory)] [string] $Version,                                               # e.g. "8.8.9"
-    [Parameter(Mandatory)] [ValidateSet('exe','msi','msu')] [string]  $FileType,            # e.g. "msi"
-    [Parameter(Mandatory = $false)] [ValidateSet('http','https')] [string] $Protocol = "http",       # e.g. Default = "http"
+    [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx')] [string]  $FileType,            		# e.g. "msi"
+    [Parameter(Mandatory = $false)] [ValidateSet('http','https')] [string] $Protocol = "http",       	# e.g. Default = "http"
     [Parameter(Mandatory)] [string] $ProGetSrv,                                             # e.g. "PSC-SWREPO1"
     [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                          # e.g. Default = "8624"
     [Parameter(Mandatory)] [string] $AssetName,                                             # e.g. "choco-assets"
@@ -185,7 +185,7 @@ function Update-ChocoInstallationScript {
         [Parameter(Mandatory)] [string] $ProGetAssetDir,            # e.g. choco-assets
         [Parameter(Mandatory)] [string] $AssetFolderPath,           # e.g. NotepadPlusPlus/NotepadPlusPlus
         [Parameter(Mandatory)] [string] $InstallerFileName,         # e.g. NotepadPlusPlus_x64_8.9.exe
-        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu')] [string] $FileType,
+        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx')] [string] $FileType,
         [Parameter(Mandatory)] [ValidateSet('x64','x86')] [string] $Arch,
         [Parameter(Mandatory)] [string] $Sha                        
     )
