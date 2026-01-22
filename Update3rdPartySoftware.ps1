@@ -40,7 +40,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-01-20
+          Modified: 2026-01-22
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -51,7 +51,7 @@
           Version - 0.0.7 - () - Bug fixing.
           Version - 0.0.8 - () - Update parse yaml logic for "nestedInstallers"
           Version - 0.0.9 - () - Cleanup of obsolete code
-		  Version - 0.0.10 - (2026-01-20) - Adapting for ProGet and Chocolatey Envoronment
+		  Version - 0.0.10 - (2026-01-22) - Adapting for ProGet and Chocolatey Envoronment
           
 
           TODO:
@@ -327,37 +327,36 @@ function Get-WebFilename {
 # Remove File
 function Remove-File {
     param (
-        [string]$path
+        [string]$Path
     )
 
-    Write-Log "Removing file from '$($path)'"
-    Write-Host "    Removing file from '$($path)'"
+    Write-Log "Removing file from '$($Path)'"
+    Write-Host "    Removing file from '$($Path)'"
     try {
-        Remove-Item $($path) -Force
-        Write-Log "Removed file '$($path)'"
+        Remove-Item $($Path) -Force
+        Write-Log "Removed file '$($Path)'"
     } catch {
-        Write-Log "WARNING: Could not remove file '$($path)' - $_"
-        #Write-Warning "Could not remove file '$($path)' - $_"
-        Write-TrackedWarning "Could not remove file '$($path)' - $_"
+        Write-Log "WARNING: Could not remove file '$($Path)' - $_"
+        Write-TrackedWarning "Could not remove file '$($Path)' - $_"
     }
 }
 
 # Copy File
 function Copy-File {
     param (
-        [string]$source,
-        [string]$dest
+        [string]$Source,
+        [string]$Dest
     )
 
-    Write-Log "Copy new version to '$($dest)'"
-    Write-Host "    Copy new version to '$($dest)'"
+    Write-Log "Copy new version to '$($Dest)'"
+    Write-Host "    Copy new version to '$($Dest)'"
     try{
-        Copy-Item -Path "$($source)" -Destination "$($dest)" -Force
-        Write-Log "Copied new version to '$($dest)'"
+        Copy-Item -Path "$($Source)" -Destination "$($Dest)" -Force
+        Write-Log "Copied new version to '$($Dest)'"
     } catch {
-        Write-Log "ERROR: Failed to copy '$($dest)' - $_"
+        Write-Log "ERROR: Failed to copy '$($Dest)' - $_"
         #Write-Error "Failed to copy '$($dest)' - $_"
-        Write-TrackedError "Failed to copy '$($dest)' - $_"
+        Write-TrackedError "Failed to copy '$($Dest)' - $_"
     }
 }
 
@@ -600,7 +599,7 @@ function Update-ChocoInstallationScript {
         [Parameter(Mandatory)] [string] $ProGetAssetDir,            # e.g. choco-assets
         [Parameter(Mandatory)] [string] $AssetFolderPath,           # e.g. NotepadPlusPlus/NotepadPlusPlus
         [Parameter(Mandatory)] [string] $InstallerFileName,         # e.g. NotepadPlusPlus_x64_8.9.exe
-        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx')] [string] $FileType,
+        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle')] [string] $FileType,
         [Parameter(Mandatory)] [ValidateSet('x64','x86')] [string] $Arch,
         [Parameter(Mandatory)] [string] $Sha                        
     )
@@ -1250,7 +1249,7 @@ foreach ($software in $SoftwareList) {
 
             if($shouldDownload) {
                 $newFile = Join-Path $downloadPath $finalFileName
-                #$currentLocalFile = $($existingInstaller.FullName)
+                $currentLocalFile = "$($ChocoPackageSourceRoot)\$($Softwarename)\tools\$($existingInstaller.Name)"
                 #$currentWDSFile = "$($wdsPath)\$($existingInstaller.Name)"
                 #$newLocalFile = "$($localStoragePath)\$($finalFileName)"
                 #$newWDSFile = "$($wdsPath)\$($finalFileName)"
@@ -1264,7 +1263,7 @@ foreach ($software in $SoftwareList) {
 
                 Write-Log "=== Start File Download Task ==="
                 Write-Log "Downloading to $newFile"
-                 Write-Host "  === Start File Download Task ==="
+                Write-Host "  === Start File Download Task ==="
                 Write-Host "    Downloading to: '$($newFile)'"
 
                 # Start Download
@@ -1273,6 +1272,30 @@ foreach ($software in $SoftwareList) {
                 } catch{
                     Write-Log "WARNING: Download could not be started - $_"
                     Write-TrackedError "Download could not be started - $_"
+                }
+
+                # Clean old installer file in Chocolatey Package Directory
+                Write-Log "Removing old installer file"
+                Write-Host "    Removing old installer file"
+                if(Test-Path -path "$($currentLocalFile)"){
+                    
+                    Remove-File -Path "$($currentLocalFile)"
+                }
+                else{
+                    Write-TrackedWarning "File '$($currentLocalFile)' not found - $_"
+                    Write-Log "WARNING: File '$($currentLocalFile)' not found - $_"
+                }
+                
+
+                # Copy File into Chocolatey Package Directory
+                Write-Log "Copy new installer file into choclatey package directory"
+                Write-Host "    Copy new installer file into choclatey package directory"
+                try{
+                    Copy-File -Source "$($newFile)" -Dest "$($ChocoPackageSourceRoot)\$($Softwarename)\tools"
+                }
+                catch{
+                    Write-TrackedWarning "Directory '$($ChocoPackageSourceRoot)\$($Softwarename)\tools' not found - $_"
+                    Write-Log "WARNING: Directory '$($ChocoPackageSourceRoot)\$($Softwarename)\tools' not found - $_"
                 }
 				
                 Write-Log "=== Start File Upload Task ==="
