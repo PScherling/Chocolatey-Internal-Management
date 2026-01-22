@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     CreateNewChocoPackage.ps1 automates the initial creation of internal Chocolatey packages in an on-prem environment.
-    It is designed for a ProGet and Chocolatey workflow where installer binaries (MSI/EXE/MSU/APPX) are hosted in a ProGet
+    It is designed for a ProGet and Chocolatey workflow where installer binaries (MSI/EXE/MSU/APPX,MSIX,APPXBUNDLE,MSIXBUNDLE) are hosted in a ProGet
     Asset Directory and Chocolatey packages reference those internal URLs.
 
     The script performs the following steps:
@@ -13,16 +13,17 @@
       2) Generates a Chocolatey package template (choco new) for the specified SoftwareName and Version
       3) Creates a backup of tools\chocolateyinstall.ps1
       4) Calculates SHA256 of the provided installer file (source)
-      5) Renames the installer file to a standardized naming convention:
+      5) Copies the installer into the package tools directory
+      6) Renames the installer file to a standardized naming convention:
          [SoftwareName]_[Arch]_[Version].[FileType]
-      6) Updates tools\chocolateyinstall.ps1:
+      7) Updates tools\chocolateyinstall.ps1:
          - Sets $url / $url64 to the ProGet Asset content URL
          - Updates fileType, checksum/checksum64 and checksumType* to SHA256
-      7) Prompts the user to review and adjust:
+      8) Prompts the user to review and adjust:
          - silentArgs
          - .nuspec metadata (title, authors, description, etc.)
-      8) Builds the package (.nupkg) using choco pack
-      9) Pushes the package to the configured ProGet feed using choco push
+      9) Builds the package (.nupkg) using choco pack
+      10) Pushes the package to the configured ProGet feed using choco push
 
     Notes / Intended Use:
       - This script currently updates the Chocolatey install script to reference the ProGet asset URL. Uploading the
@@ -35,8 +36,12 @@
     Example: E:\Choco\Packages
 
 .PARAMETER SourceFilePath
-    Full path to the installer file that should be packaged (EXE/MSI/MSU).
-    Example: C:\Users\...\Downloads\WinSCP.exe
+    Path where the installer file is located.
+    Example: C:\Users\...\Downloads
+
+.PARAMETER SourceFile
+    Full name of the source installer file that should be packaged.
+    Example: WinSCP.exe
 
 .PARAMETER Publisher
     Vendor / Publisher name used for folder structure.
@@ -89,9 +94,9 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-20
-          Modified: 2026-01-21
+          Modified: 2026-01-22
 
-		  Version - 0.0.1 - (2026-01-21) - Finalized functional version 1.
+		  Version - 0.0.1 - (2026-01-22) - Finalized functional version 1.
           
 
           TODO:
@@ -104,7 +109,8 @@
     # Create a new package for WinSCP (x86 EXE), update chocolateyinstall.ps1, build and push to ProGet feed
     .\CreateNewChocoPackage.ps1 `
         -ChocoPackagesPath "E:\Choco\Packages" `
-        -SourceFilePath "C:\Users\Admin\Downloads\WinSCP.exe" `
+        -SourceFilePath "C:\Users\Admin\Downloads" `
+        -SourceFile "WinSCP.exe" `
         -Publisher "WinSCP" `
         -SoftwareName "WinSCP" `
         -Arch "x86" `
@@ -121,7 +127,8 @@
     # Create an x86 MSI package and push to ProGet (defaults: Arch=x86, Protocol=http, Port=8624)
     .\CreateNewChocoPackage.ps1 `
         -ChocoPackagesPath "E:\Choco\Packages" `
-        -SourceFilePath "C:\Temp\MyApp.msi" `
+        -SourceFilePath "C:\Temp" `
+        -SourceFile "MyApp.msi" `
         -Publisher "VendorX" `
         -SoftwareName "MyApp" `
         -Version "1.2.3" `
@@ -134,13 +141,17 @@
 #>
 param(
     [Parameter(Mandatory)] [string] $ChocoPackagesPath,                                     # e.g. "E:\Choco\Packages"
-    [Parameter(Mandatory)] [string] $SourceFilePath,                                        # e.g. "C:\Users\sysadmineuro\Downloads\WinSCP.exe"
+    [Parameter(Mandatory)] [string] $SourceFilePath,                                        # e.g. "C:\Users\sysadmineuro\Downloads"
+    [Parameter(Mandatory)] [string] $SourceFile,                                            # e.g. "WinSCP.exe"
     [Parameter(Mandatory)] [string] $Publisher,                                             # e.g. "Microsoft"
     [Parameter(Mandatory)] [string] $SoftwareName,                                          # e.g. "NotepadPlusPlus"
     [Parameter(Mandatory = $false)] [ValidateSet('x64','x86')] [string] $Arch = "x86",      # e.g. "x64" | Default = "x86"
     [Parameter(Mandatory)] [string] $Version,                                               # e.g. "8.8.9"
-    [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx')] [string]  $FileType,            		# e.g. "msi"
-    [Parameter(Mandatory = $false)] [ValidateSet('http','https')] [string] $Protocol = "http",       	# e.g. Default = "http"
+    [Parameter(Mandatory)] 
+    [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle')] 
+    [string]  $FileType,                                                                    # e.g. "msi"
+    [Parameter(Mandatory = $false)] 
+    [ValidateSet('http','https')] [string] $Protocol = "http",                              # e.g. Default = "http"
     [Parameter(Mandatory)] [string] $ProGetSrv,                                             # e.g. "PSC-SWREPO1"
     [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                          # e.g. Default = "8624"
     [Parameter(Mandatory)] [string] $AssetName,                                             # e.g. "choco-assets"
@@ -185,8 +196,8 @@ function Update-ChocoInstallationScript {
         [Parameter(Mandatory)] [string] $ProGetAssetDir,            # e.g. choco-assets
         [Parameter(Mandatory)] [string] $AssetFolderPath,           # e.g. NotepadPlusPlus/NotepadPlusPlus
         [Parameter(Mandatory)] [string] $InstallerFileName,         # e.g. NotepadPlusPlus_x64_8.9.exe
-        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx')] [string] $FileType,
-        [Parameter(Mandatory)] [ValidateSet('x64','x86')] [string] $Arch,
+        [Parameter(Mandatory)] [string] $FileType,
+        [Parameter(Mandatory)] [string] $Arch,
         [Parameter(Mandatory)] [string] $Sha                        
     )
     $returnCode = 0
@@ -422,6 +433,22 @@ function Start-PushPackage {
     return $returnCode
 }
 
+function Copy-File {
+    param (
+        [Parameter(Mandatory)] [string]$Source,
+        [Parameter(Mandatory)] [string]$Dest
+    )
+    $returnCode = 0
+
+    try{
+        Copy-Item -Path "$($Source)" -Destination "$($Dest)" -Force | Out-Null
+    } catch {
+        throw "Could not copy '$($Source)' to '$($Dest)' - $_"
+        $returnCode = 1
+    }
+    return $returnCode
+}
+
 
 Write-Host -ForegroundColor Cyan "
     +----+ +----+     
@@ -438,7 +465,7 @@ Write-Host "              Create New Software Package For Choclatey"
 Write-Host "-----------------------------------------------------------------------------------"
 Write-Host "=== $($Publisher) | $($SoftwareName) ===
     Base directory:            $($ChocoPackagesPath)\$($Publisher)
-    Source File:               $($SourceFilePath)
+    Source File:               $($SourceFilePath)\$($SourceFile)
     Version:                   $($Version)
     Architecture:              $($Arch)
     File Type:                 $($FileType)
@@ -447,7 +474,7 @@ Write-Host "=== $($Publisher) | $($SoftwareName) ===
 "
 
 Write-Host "Starting with creation..."
-Write-Host "Create new base directory"
+Write-Host "Attempt to create new base directory"
 $dir            = New-BaseDirectory -Path "$($ChocoPackagesPath)" -Manufacturer "$($Publisher)"
 if($dir -eq 0){
     Write-Host -ForegroundColor Green "Base directory created for $($Publisher)"
@@ -456,7 +483,7 @@ elseif($dir -eq 1){
     Write-Host -ForegroundColor Red "Base directory not created"
 }
 
-Write-Host "Create new package"
+Write-Host "Attempt to create new package"
 $pkg            = New-ChocoPackage -Name "$($SoftwareName)" -Ver "$($Version)"
 if($pkg -eq 0){
     Write-Host -ForegroundColor Green "New software package created for $($SoftwareName)"
@@ -465,7 +492,7 @@ elseif($pkg -eq 1){
     Write-Host -ForegroundColor Red "Software package not created"
 }
 
-Write-Host "Backup installation script"
+Write-Host "Attempt to backup installation script"
 $setScript      = Set-InstallScript -Path "$($ToolsDir)\chocolateyinstall.ps1"
 if($setScript -eq 0){
     Write-Host -ForegroundColor Green "Backup of installation script created"
@@ -474,8 +501,8 @@ elseif($setScript -eq 1){
     Write-Host -ForegroundColor Red "Backup of installation script not created"
 }
 
-Write-Host "Fetch hash value from installation file"
-$shaValue       = Get-HashValue -Path "$($SourceFilePath)"
+Write-Host "Attempt to fetch hash value from installation file"
+$shaValue       = Get-HashValue -Path "$($SourceFilePath)\$($SourceFile)"
 if($($shaValue.ReturnCode) -eq 0){
     Write-Host -ForegroundColor Green "Hash value from installation file fetched: $($shaValue.FileSHA256)"
 }
@@ -483,14 +510,26 @@ elseif($($shaValue.ReturnCode) -eq 1){
     Write-Host -ForegroundColor Red "Hash value from installation file not fetched"
 }
 
-Write-Host "Rename installation file to new naming convention"
-$rnmFile        = Rename-SoftwareFile -Path "$($SourceFilePath)" -NewFileName "$($FileName)"
+
+Write-Host "Attempt to copy installation file into package structure"
+$cpFile         = Copy-File -Source "$($SourceFilePath)\$($SourceFile)" -Dest "$($ToolsDir)\$($SourceFile)"
+if($cpFile -eq 0){
+    Write-Host -ForegroundColor Green "Installation file copied to '$($ToolsDir)\$($SourceFile)'"
+}
+elseif($cpFile -eq 1){
+    Write-Host -ForegroundColor Red "Installation file not copied"
+}
+
+
+Write-Host "Attempt to rename installation file to new naming convention"
+$rnmFile        = Rename-SoftwareFile -Path "$($ToolsDir)\$($SourceFile)" -NewFileName "$($FileName)"
 if($($rnmFile.ReturnCode) -eq 0){
     Write-Host -ForegroundColor Green "Installation file renamed to $($rnmFile.FileName)"
 }
 elseif($($rnmFile.ReturnCode) -eq 1){
     Write-Host -ForegroundColor Red "Installation file not renamed"
 }
+
 
 Write-Host "Update content of installation script"
 $updScript      = Update-ChocoInstallationScript -ToolsDir "$($ToolsDir)" -ProGetBaseUrl "$($ProGetBaseUrl)" -ProGetAssetDir "$($AssetName)" -AssetFolderPath "$($ProGetAssetFolder)" -InstallerFileName "$($FileName)" -FileType "$($FileType)" -Arch "$($Arch)" -Sha "$($shaValue.FileSHA256)"
