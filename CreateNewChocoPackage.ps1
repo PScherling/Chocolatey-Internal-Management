@@ -94,9 +94,9 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-20
-          Modified: 2026-01-22
+          Modified: 2026-01-23
 
-		  Version - 0.0.1 - (2026-01-22) - Finalized functional version 1.
+		  Version - 0.0.1 - (2026-01-23) - Finalized functional version 1.
           
 
           TODO:
@@ -448,6 +448,7 @@ function Copy-File {
     }
     return $returnCode
 }
+
 
 
 Write-Host -ForegroundColor Cyan "
