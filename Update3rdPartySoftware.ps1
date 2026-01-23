@@ -453,6 +453,8 @@ function Publish-ChocoPackageToProGet {
         Write-TrackedError "ERROR: Could not push current location - $_"
     }
 
+    Write-Log "Attempting to create new package and push it to ProGet feed"
+    Write-Host "    Attempting to create new package and push it to ProGet feed"
     try {
         choco pack | Out-Null
 
@@ -1315,20 +1317,20 @@ foreach ($software in $SoftwareList) {
                 Write-Host "    Update Chocolatey package"
 				# You should store each package source in a stable folder: E:\ChocoSrc\<PackageId>\
                 $packageId = "$($Softwarename)" 
-                $pkgDir    = Join-Path $ChocoPackageSourceRoot $packageId
-                $nuspec    = Join-Path $pkgDir "$packageId.nuspec"
-                $checksums = Join-Path $pkgDir "tools\checksums.json"
+                #$pkgDir    = Join-Path $ChocoPackageSourceRoot $packageId
+                $nuspec    = Join-Path $($localStoragePath) "$packageId.nuspec"
+                $checksums = Join-Path $($localStoragePath) "tools\checksums.json"
                 
-                Write-Log "Package Information: ID='$($packageId)' DIR='$($pkgDir)' Nuspec='$($nuspec)' Checksum='$($checksums)' PushURL='$($ProGetChocoPushUrl)'"
+                Write-Log "Package Information: ID='$($packageId)' DIR='$($localStoragePath)' Nuspec='$($nuspec)' Checksum='$($checksums)' PushURL='$($ProGetChocoPushUrl)'"
                 Write-Host "    PackageID:            $packageId"
-                Write-Host "    Package Directory:    $pkgDir"
+                Write-Host "    Package Directory:    $($localStoragePath)"
                 Write-Host "    Nuspec File:          $nuspec"
                 Write-Host "    Checksum File:        $checksums"
                 Write-Host "    Push URL:             $ProGetChocoPushUrl"
 
-                if (-not (Test-Path $pkgDir)) { 
-                    Write-Log "ERROR: Chocolatey package source folder not found: $pkgDir - $_"
-                    Write-TrackedError "Chocolatey package source folder not found: $pkgDir - $_" 
+                if (-not (Test-Path $($localStoragePath))) { 
+                    Write-Log "ERROR: Chocolatey package source folder not found: $($localStoragePath) - $_"
+                    Write-TrackedError "Chocolatey package source folder not found: $($localStoragePath) - $_" 
                 }
                 if (-not (Test-Path $nuspec)) { 
                     Write-Log "ERROR: Nuspec not found: $nuspec - $_"
@@ -1381,7 +1383,7 @@ foreach ($software in $SoftwareList) {
                 $extNoDot = $ext.TrimStart('.').ToLower()
                 
                 try{
-                    $updScript = Update-ChocoInstallationScript -ToolsDir "$($pkgDir)\tools" -ProGetBaseUrl "$($ProGetBaseUrl)" -ProGetAssetDir "$($ProGetAssetDir)" -AssetFolderPath "$($ProGetAssetFolder)" -InstallerFileName "$($finalFileName)" -FileType "$extNoDot" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
+                    $updScript = Update-ChocoInstallationScript -ToolsDir "$($localStoragePath)\tools" -ProGetBaseUrl "$($ProGetBaseUrl)" -ProGetAssetDir "$($ProGetAssetDir)" -AssetFolderPath "$($ProGetAssetFolder)" -InstallerFileName "$($finalFileName)" -FileType "$extNoDot" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
                 }
                 catch{
                     Write-Log "ERROR: Could not update installation script - $_"
@@ -1392,7 +1394,7 @@ foreach ($software in $SoftwareList) {
                 Write-Log "Pack and Push the Chocolatey package to ProGet feed"
                 Write-Host "    Pack and Push the Chocolatey package to ProGet feed"
                 try{
-				    $nupkgPath = Publish-ChocoPackageToProGet -PackageSourceDir $pkgDir -PushUrl $ProGetChocoPushUrl -Key $ProGetFeedApiKey
+				    $nupkgPath = Publish-ChocoPackageToProGet -PackageSourceDir $($localStoragePath) -PushUrl $ProGetChocoPushUrl -Key $ProGetFeedApiKey
                 }
                 catch{
                     Write-Log "ERROR: Could not pack and push new chocolatey package - $_"
