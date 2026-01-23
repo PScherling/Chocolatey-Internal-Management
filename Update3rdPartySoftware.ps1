@@ -40,7 +40,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-01-22
+          Modified: 2026-01-23
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -51,7 +51,7 @@
           Version - 0.0.7 - () - Bug fixing.
           Version - 0.0.8 - () - Update parse yaml logic for "nestedInstallers"
           Version - 0.0.9 - () - Cleanup of obsolete code
-		  Version - 0.0.10 - (2026-01-22) - Adapting for ProGet and Chocolatey Envoronment
+		  Version - 0.0.10 - (2026-01-23) - Adapting for ProGet and Chocolatey Envoronment
           
 
           TODO:
@@ -189,10 +189,8 @@ function Get-SoftwarePaths {
             FirstLetter        = $firstLetter
             ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
             RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
-            #LocalStoragePath   = "$($localStorageBasePath)\$($Publisher)\$($SoftwareName)"
-            #WdsPath            = "$($wdsShareBasePath)\$($Publisher) $($SoftwareName)"
-			#ProGetAssetPath    = "$($ProGetBaseUrl)/endpoints/$($ProGetAssetDir)/content/$($publisherForAssets)/$($softwareForAssets)"
-            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)" # e.g. NotepadPlusPlus/NotepadPlusPlus
+            LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)"
+            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)" 
         }
     } 
     elseif(-not [string]::IsNullOrEmpty($SubName1) -and [string]::IsNullOrEmpty($SubName2)){
@@ -203,8 +201,7 @@ function Get-SoftwarePaths {
             FirstLetter        = $firstLetter
             ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
             RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
-            #LocalStoragePath   = "$($localStorageBasePath)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
-            #WdsPath            = "$($wdsShareBasePath)\$($Publisher) $($SoftwareName) $($subFolder1)"
+            LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
             ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)/$($subFolder1)" 
         }
     }
@@ -216,8 +213,7 @@ function Get-SoftwarePaths {
             FirstLetter        = $firstLetter
             ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
             RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
-            #LocalStoragePath   = "$($localStorageBasePath)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
-            #WdsPath            = "$($wdsShareBasePath)\$($Publisher) $($SoftwareName) $($subFolder1) $($subFolder2)"
+            LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
             ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)/$($subFolder1)/$($subFolder2)" 
         }
     }
@@ -764,6 +760,7 @@ if (-not (Get-Module -Name "powershell-yaml")) {
 }
 
 
+
 Write-Host -ForegroundColor Cyan "
     +----+ +----+     
     |####| |####|     
@@ -995,16 +992,14 @@ foreach ($software in $SoftwareList) {
 
         $apiUrl = "-"
         $rawUrl = "-"
-        #$localStoragePath = $paths.LocalStoragePath
-        #$wdsPath = $paths.WdsPath
+        $localStoragePath = $paths.LocalStoragePath
         $ProGetAssetFolder = $paths.ProGetAssetRelativePath   
     }
     elseif($updateOption -eq "API"){
         $paths = Get-SoftwarePaths -Publisher $publisher -SoftwareName $Softwarename -SubName1 $software.SubName1 -SubName2 $software.SubName2
         $apiUrl = $paths.ApiUrl
         $rawUrl = $paths.RawUrl
-        #$localStoragePath = $paths.LocalStoragePath
-        #$wdsPath = $paths.WdsPath
+        $localStoragePath = $paths.LocalStoragePath
 		$ProGetAssetFolder = $paths.ProGetAssetRelativePath
     }
     elseif($updateOption -eq "WEB"){
@@ -1012,8 +1007,7 @@ foreach ($software in $SoftwareList) {
 
         $apiUrl = $software.WebLink
         $rawUrl = "-"
-        #$localStoragePath = $paths.LocalStoragePath
-        #$wdsPath = $paths.WdsPath
+        $localStoragePath = $paths.LocalStoragePath
         $ProGetAssetFolder = $paths.ProGetAssetRelativePath
     }
     # API Mode as Default
@@ -1021,8 +1015,7 @@ foreach ($software in $SoftwareList) {
         $paths = Get-SoftwarePaths -Publisher $publisher -SoftwareName $Softwarename -SubName1 $software.SubName1 -SubName2 $software.SubName2
         $apiUrl = $paths.ApiUrl
         $rawUrl = $paths.RawUrl
-        #$localStoragePath = $paths.LocalStoragePath
-        #$wdsPath = $paths.WdsPath
+        $localStoragePath = $paths.LocalStoragePath
         $ProGetAssetFolder = $paths.ProGetAssetRelativePath
     }
 
@@ -1249,14 +1242,8 @@ foreach ($software in $SoftwareList) {
 
             if($shouldDownload) {
                 $newFile = Join-Path $downloadPath $finalFileName
-                $currentLocalFile = "$($ChocoPackageSourceRoot)\$($Softwarename)\tools\$($existingInstaller.Name)"
-                #$currentWDSFile = "$($wdsPath)\$($existingInstaller.Name)"
-                #$newLocalFile = "$($localStoragePath)\$($finalFileName)"
-                #$newWDSFile = "$($wdsPath)\$($finalFileName)"
-				#$currentAssetFile = "$($existingInstaller.Name)"
-				#$newAssetFile = "$($finalFileName)"
-
-                
+                $currentLocalFile = "$($localStoragePath)\tools\$($existingInstaller.Name)"
+                                
                 #Debug output
                 #Write-Host "    Current Asset File: $currentAssetFile"
                 #Write-Host "    New Asset File: $newAssetFile"
@@ -1291,11 +1278,11 @@ foreach ($software in $SoftwareList) {
                 Write-Log "Copy new installer file into choclatey package directory"
                 Write-Host "    Copy new installer file into choclatey package directory"
                 try{
-                    Copy-File -Source "$($newFile)" -Dest "$($ChocoPackageSourceRoot)\$($Softwarename)\tools"
+                    Copy-File -Source "$($newFile)" -Dest "$($localStoragePath)\tools"
                 }
                 catch{
-                    Write-TrackedWarning "Directory '$($ChocoPackageSourceRoot)\$($Softwarename)\tools' not found - $_"
-                    Write-Log "WARNING: Directory '$($ChocoPackageSourceRoot)\$($Softwarename)\tools' not found - $_"
+                    Write-TrackedWarning "Directory '$($localStoragePath)\tools' not found - $_"
+                    Write-Log "WARNING: Directory '$($localStoragePath)\tools' not found - $_"
                 }
 				
                 Write-Log "=== Start File Upload Task ==="
