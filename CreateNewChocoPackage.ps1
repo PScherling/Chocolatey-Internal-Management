@@ -403,7 +403,7 @@ function Start-Packaging {
     )
     $returnCode = 0
     try{
-        choco pack "$($NuSpecPath)" --outdir "$($OutDir)" | Out-Null
+        choco pack "$($NuSpecPath)" --outdir "$($OutDir)" #| Out-Null
     }
     catch{
         throw "Could not create chocolatey package '.nupkg' - $_"
