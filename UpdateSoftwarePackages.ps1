@@ -2,9 +2,9 @@
 .SYNOPSIS
 	Automates downloading, updating, and synchronizing third-party software installers from multiple sources (Winget API, direct web links, or local downloads).
 .DESCRIPTION
-    The **Update3rdPartySoftware.ps1** script is an advanced automation tool designed to maintain up-to-date third-party software repositories 
-	for enterprise deployment environments (e.g., MDT, WDS, or SCCM).  
-	It dynamically checks for new software versions, downloads the latest installers, and synchronizes them across local and deployment share directories.
+    The **UpdateSoftwarePackages.ps1** script is an advanced automation tool designed to maintain up-to-date software packages
+	for enterprise deployment environments build with Chocolatey and ProGet. 
+	It dynamically checks for new software versions, downloads the latest installers, and synchronizes them across local package directories and repository shares.
 	
 	It supports three main update modes:
 	- **API Mode:** Uses the official Microsoft WinGet GitHub repository to query and fetch installers via the GitHub API.
@@ -19,14 +19,40 @@
 	- Integration with GitHub API for WinGet manifest parsing and version checks
 	- YAML parsing via `powershell-yaml` module (automatically installed if missing)
 	- Automatic handling of nested installers and fallback download mechanisms
-	- Logging of all progress, warnings, and errors to `.\Logs\Update3rdPartySoftware`
+	- Logging of all progress, warnings, and errors to `.\Logs\UpdateSoftwarePackages`
 	- Interactive and color-coded PowerShell console interface
-	- File synchronization to both local storage and WDS deployment shares
+	- File synchronization to both local storage and ProGet Repository
 	
 	This script is particularly useful for:
 	- Deployment administrators managing large software libraries
 	- Automated update maintenance of application repositories
 	- Enterprise software packaging and version management
+
+.PARAMETER UpdateOption
+    Specifies which update method to use: ALL, API, WEB, or LOCAL. Default is ALL.
+
+.PARAMETER GitToken
+    GitHub Personal Access Token for accessing the WinGet repository API.
+
+.PARAMETER ProGetFeedApiKey
+    API Key for accessing the ProGet feed where Chocolatey packages are hosted. 
+
+.PARAMETER ProGetAssetApiKey
+    API Key for accessing the ProGet asset repository where installer files are stored.
+
+.PARAMETER ProGetBaseUrl
+    Base URL of the ProGet server including the specified port (e.g., http://PSC-SWREPO1:8624).
+
+.PARAMETER ProGetAssetDir
+    Name of the ProGet asset directory (e.g., choco-assets).   
+
+.PARAMETER ProGetChocoFeedName
+    Name of the ProGet Chocolatey packages feed (e.g., internal-choco).  
+
+.PARAMETER ChocoPackageSourceRoot
+    Root directory where Chocolatey package source folders are located (e.g., E:\Choco\Packages).
+
+
 .LINK
 	https://github.com/microsoft/winget-pkgs  
 	https://learn.microsoft.com/en-us/windows/package-manager/winget/  
@@ -34,13 +60,13 @@
 	https://github.com/PScherling
     
 .NOTES
-          FileName: Update3rdPartySoftware.ps1
-          Solution: Auto-Update 3rd Party Software on MDT/WDS Server
+          FileName: UpdateSoftwarePackages.ps1
+          Solution: Auto-Update Software Packages for Chocolatey on ProGet Repository
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-01-23
+          Modified: 2026-01-24
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -52,6 +78,7 @@
           Version - 0.0.8 - () - Update parse yaml logic for "nestedInstallers"
           Version - 0.0.9 - () - Cleanup of obsolete code
 		  Version - 0.0.10 - (2026-01-23) - Adapting for ProGet and Chocolatey Envoronment
+          Version - 0.0.11 - (2026-01-24) - Reconstructuring Script...
           
 
           TODO:
@@ -64,16 +91,23 @@
 	- Access to local and WDS share paths
 		
 .Example
-	PS> .\Update3rdPartySoftware.ps1
-	Starts the script interactively, allowing you to choose between API, WEB, LOCAL, or ALL update modes.
+	PS> .\UpdateSoftwarePackages.ps1
+	Starts the script
 
-	PS> .\Update3rdPartySoftware.ps1
-	 Choose an Option (1-5): 4
-	Runs the full update process for all configured software in the CSV file using every available update source.
-
-	PS> powershell.exe -ExecutionPolicy Bypass -File "C:\Scripts\Update3rdPartySoftware.ps1"
-	Schedules or runs the script unattended for automated nightly software updates.
+	PS> .\UpdateSoftwarePackages.ps1 -UpdateOption "API" -GitToken "ghp_XXXX" -ProGetFeedApiKey "XXXX" -ProGetAssetApiKey "XXXX" -ProGetBaseUrl "http://PSC-SWREPO1:8624" -ProGetAssetDir "choco-assets" -ProGetChocoFeedName "internal-choco" -ChocoPackageSourceRoot "E:\Choco\Packages"
+    Starts the script with specified parameters.
 #>
+
+param(
+    [Parameter(Mandatory = $false)] [ValidateSet('ALL','API','WEB','LOCAL')] [string] $UpdateOption = "ALL",                        # e.g. ALL, API, WEB, LOCAL | Default = ALL
+    [Parameter(Mandatory)] [string] $GitToken,                                                                                      # GitHub Personal Access Token  
+    [Parameter(Mandatory)] [string] $ProGetFeedApiKey,                                                                              # ProGet Feed API Key (Feed of choco-packages)
+    [Parameter(Mandatory)] [string] $ProGetAssetApiKey,                                                                             # ProGet Asset API Key (Asset Repository of installer files)                                         
+    [Parameter(Mandatory)] [string] $ProGetBaseUrl,                                                                                 # e.g. http://PSC-SWREPO1:8624     
+    [Parameter(Mandatory)] [string] $ProGetAssetDir,                                                                                # e.g. choco-assets   
+    [Parameter(Mandatory)] [string] $ProGetChocoFeedName,                                                                           # e.g. internal-choco   
+    [Parameter(Mandatory)] [string] $ChocoPackageSourceRoot                                                                         # e.g. E:\Choco\Packages                                                                                      
+)
 
 Clear-Host
 
@@ -83,17 +117,14 @@ Clear-Host
 $global:WarningCount 			= 0
 $global:ErrorCount 				= 0
 $filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logPath 						= Join-Path -Path "E:\UpdateScripts\Logs\Update3rdPartySoftware" -ChildPath "Update3rdPartySoftware_$($filetimestamp).log"
-$myToken 						= ""
+$logPath 						= Join-Path -Path "E:\UpdateScripts\Logs\UpdateSoftwarePackages" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
+#$GitToken 						= $GitToken
 $userInput 					    = ""
 $baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
 $baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
-#$updateOption 					= "API" # Defualt is API | Options: API or LOCAL
 $selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
 $csvPath 						= Join-Path -Path "E:\UpdateScripts" -ChildPath "SofwareList.csv"
-#$localStorageBasePath 			= "S:\Sources\Software"
-#$wdsShareBasePath 				= "D:\DeploymentShare\Applications"
-$downloadPath 					= "E:\UpdateScripts\temp\Downloads"
+$downloadPath 					= "E:\UpdateScripts\temp\Downloads"     # still needed?
 if (-not (Test-Path $downloadPath)) {
     Write-Log "Download Directory not found. Creating '$($downloadPath)'"
     try{
@@ -109,38 +140,29 @@ if (-not (Test-Path $downloadPath)) {
 $installerTypeToExtension = @{
     exe     = "exe"
     msi     = "msi"
+    msu     = "msu"
     msix    = "msix"
-    nullsoft = "exe"
-    inno    = "exe"
-    wix     = "msi"
-    burn    = "exe"
-    zip     = "zip"
     appx    = "appx"
+    appxbundle  = "appxbundle"
+    msixbundle  = "msixbundle"
 }
-<#
-$SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | ForEach-Object {
-    [pscustomobject]@{
-        Publisher           = $_.Publisher
-        SoftwareName        = $_.SoftwareName
-        SubName1            = $_.SubName1
-        SubName2            = $_.SubName2
-        PreferredExtension  = $_.PreferredExtension
-        Arch                = $_.Arch
-        UpdateOption        = $_.UpdateOption
-        WebLink             = $_.WebLink
-    }
+
+# Mapping known Architecture values
+$installerArchType = @{
+    x86     = "x86"
+    x64     = "x64"
 }
-#>
+
 
 # ProGet Environment
-$ProGetBaseUrl 					= "http://PSC-SWREPO1:8624"
-$ProGetAssetDir       			= "choco-assets"
-$ProGetAssetApiKey    			= ""   # API key with View/Download (+ Add/Repackage if you upload)
-$ProGetFeedApiKey    			= ""   # API key with View/Download (+ Add/Repackage if you upload)
-$ProGetChocoFeedName  			= "internal-choco"
+#$ProGetBaseUrl 				= "http://PSC-SWREPO1:8624"
+#$ProGetAssetDir       			= "choco-assets"
+#$ProGetAssetApiKey    			= ""   # API key with View/Download (+ Add/Repackage if you upload)
+#$ProGetFeedApiKey    			= ""   # API key with View/Download (+ Add/Repackage if you upload)
+#$ProGetChocoFeedName  			= "internal-choco"
 $ProGetChocoPushUrl   			= "$ProGetBaseUrl/nuget/$ProGetChocoFeedName"  # works with choco push
 # Where your Chocolatey package *source folders* live (nuspec + tools\ scripts)
-$ChocoPackageSourceRoot 		= "E:\Choco\Packages"
+#$ChocoPackageSourceRoot 		= "E:\Choco\Packages"
 $newAssetFileSHA256             = ""
 
 
@@ -351,7 +373,6 @@ function Copy-File {
         Write-Log "Copied new version to '$($Dest)'"
     } catch {
         Write-Log "ERROR: Failed to copy '$($Dest)' - $_"
-        #Write-Error "Failed to copy '$($dest)' - $_"
         Write-TrackedError "Failed to copy '$($Dest)' - $_"
     }
 }
@@ -488,9 +509,6 @@ function Get-ProGetAssetFolderItems {
         "X-ApiKey" = "$ProGetAssetApiKey"
     } -ErrorAction Stop
 
-    # ProGet can return either an array OR { items: [...] }
-    #if ($null -ne $AssetItems.items) { return $AssetItems.items }
-
     return $AssetItems
 }
 
@@ -597,10 +615,20 @@ function Update-ChocoInstallationScript {
         [Parameter(Mandatory)] [string] $ProGetAssetDir,            # e.g. choco-assets
         [Parameter(Mandatory)] [string] $AssetFolderPath,           # e.g. NotepadPlusPlus/NotepadPlusPlus
         [Parameter(Mandatory)] [string] $InstallerFileName,         # e.g. NotepadPlusPlus_x64_8.9.exe
-        [Parameter(Mandatory)] [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle')] [string] $FileType,
-        [Parameter(Mandatory)] [ValidateSet('x64','x86')] [string] $Arch,
+        [Parameter(Mandatory)] [string] $FileType,                  # e.g. exe, msi etc.
+        [Parameter(Mandatory)] [string] $Arch,                      # e.g. x64, x86 
         [Parameter(Mandatory)] [string] $Sha                        
     )
+
+    # Validate FileType at runtime because ValidateSet requires compile-time constants
+    if (-not ($installerTypeToExtension.Values -contains $FileType)) {
+        throw "Invalid FileType '$FileType'. Allowed values: $($installerTypeToExtension.Values -join ', ')"
+    }
+
+    # Validate Architecture at runtime because ValidateSet requires compile-time constants
+    if (-not ($installerArchType.Values -contains $Arch)) {
+        throw "Invalid Architecture '$Arch'. Allowed values: $($installerArchType.Values -join ', ')"
+    }
 
     $assetUrl = "$ProGetBaseUrl/endpoints/$ProGetAssetDir/content/$AssetFolderPath/$InstallerFileName"
     
@@ -678,7 +706,7 @@ function Update-ChocoInstallationScript {
             "  checksum      = '$Sha'"
         )
     }
-    else {
+    elseif ($Arch -eq 'x86') {
         # Update $url variable
         <#
         $content = [regex]::Replace(
@@ -718,7 +746,18 @@ function Convert-NameForProGetPath {
     param(
         [Parameter(Mandatory)] [string] $Name
     )
-    return ($Name -replace '\+', 'Plus')
+
+    if($Name -match '\+'){
+        $Name = $Name -replace '\+', 'Plus'
+    }
+    if($Name -match '\='){
+        $Name = $Name -replace '\=', ''
+    }
+    if($Name -match '\#'){
+        $Name = $Name -replace '\#', ''
+    }
+
+    return $Name
 }
 
 
@@ -775,8 +814,9 @@ Write-Host -ForegroundColor Cyan "
 "
 
 Write-Host "-----------------------------------------------------------------------------------"
-Write-Host "              Update 3rd-Party Software"
+Write-Host "              Update Software Packages"
 Write-Host "-----------------------------------------------------------------------------------"
+<#
 Write-Host "
     Update Otpions
     1) Update API only software
@@ -801,7 +841,9 @@ do {
     }
     Write-Log "User choice: $($selectedUpdateOption)"
 } while ($choice -notin '1','2','3','4','5')
-
+#>
+$selectedUpdateOption = $UpdateOption
+Write-Log "Update Option selected: $($selectedUpdateOption)"
 if($selectedUpdateOption -eq "ALL"){
     Write-Log "Updateing ALL."
 
@@ -829,23 +871,25 @@ if($selectedUpdateOption -eq "ALL"){
             }
         }
 
+        <#
         Write-Log "Waiting for GitHub API Token..."
-        while([string]::IsNullOrEmpty($myToken)){
-            $myToken = Read-Host -Prompt " Enter your GitHub API Token"
-            #Write-Log "User input for API Token: $myToken"
+        while([string]::IsNullOrEmpty($GitToken)){
+            $GitToken = Read-Host -Prompt " Enter your GitHub API Token"
+            #Write-Log "User input for API Token: $GitToken"
         }
 
         Write-Log "Waiting for ProGet Asset API Token..."
         while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
             $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
-            #Write-Log "User input for API Token: $myToken"
+            #Write-Log "User input for API Token: $GitToken"
         }
 
         Write-Log "Waiting for ProGet Feed API Token..."
         while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
             $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
-            #Write-Log "User input for API Token: $myToken"
+            #Write-Log "User input for API Token: $GitToken"
         }
+        #>
     }
     elseif($userInput -eq "N"){
         Exit
@@ -873,23 +917,25 @@ elseif($selectedUpdateOption -eq "API"){
         }
     }
 
+    <#
     Write-Log "Waiting for API Token..."
-    while([string]::IsNullOrEmpty($myToken)){
-        $myToken = Read-Host -Prompt " Enter your GitHub API Token"
-        #Write-Log "User input for API Token: $myToken"
+    while([string]::IsNullOrEmpty($GitToken)){
+        $GitToken = Read-Host -Prompt " Enter your GitHub API Token"
+        #Write-Log "User input for API Token: $GitToken"
     }
 
     Write-Log "Waiting for ProGet Asset API Token..."
     while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
         $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
-        #Write-Log "User input for API Token: $myToken"
+        #Write-Log "User input for API Token: $GitToken"
     }
 
     Write-Log "Waiting for ProGet Feed API Token..."
     while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
         $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
-        #Write-Log "User input for API Token: $myToken"
+        #Write-Log "User input for API Token: $GitToken"
     }
+    #>
 }
 <#
 elseif($selectedUpdateOption -eq "WEB"){
@@ -916,13 +962,13 @@ elseif($selectedUpdateOption -eq "WEB"){
     Write-Log "Waiting for ProGet Asset API Token..."
     while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
         $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
-        #Write-Log "User input for API Token: $myToken"
+        #Write-Log "User input for API Token: $GitToken"
     }
 
     Write-Log "Waiting for ProGet Feed API Token..."
     while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
         $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
-        #Write-Log "User input for API Token: $myToken"
+        #Write-Log "User input for API Token: $GitToken"
     }
 }
 elseif($selectedUpdateOption -eq "LOCAL"){
@@ -958,13 +1004,13 @@ elseif($selectedUpdateOption -eq "LOCAL"){
         Write-Log "Waiting for ProGet Asset API Token..."
         while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
             $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
-            #Write-Log "User input for API Token: $myToken"
+            #Write-Log "User input for API Token: $GitToken"
         }
 
         Write-Log "Waiting for ProGet Feed API Token..."
         while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
             $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
-            #Write-Log "User input for API Token: $myToken"
+            #Write-Log "User input for API Token: $GitToken"
         }
     }
     elseif($userInput -eq "N"){
@@ -1058,7 +1104,7 @@ foreach ($software in $SoftwareList) {
         # Create headers for authentication
         $headers = @{
             "User-Agent" = "PowerShell"
-            "Authorization" = "token $myToken"
+            "Authorization" = "token $GitToken"
         }
         Write-Log "Create headers for authentication."
         
