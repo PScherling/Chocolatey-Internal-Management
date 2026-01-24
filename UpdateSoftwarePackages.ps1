@@ -100,9 +100,9 @@
 
 param(
     [Parameter(Mandatory = $false)] [ValidateSet('ALL','API','WEB','LOCAL')] [string] $UpdateOption = "ALL",                        # e.g. ALL, API, WEB, LOCAL | Default = ALL
-    [Parameter(Mandatory = $false)] [string] $GitToken,                                                                                      # GitHub Personal Access Token  
-    [Parameter(Mandatory = $false)] [string] $ProGetFeedApiKey,                                                                              # ProGet Feed API Key (Feed of choco-packages)
-    [Parameter(Mandatory = $false)] [string] $ProGetAssetApiKey,                                                                             # ProGet Asset API Key (Asset Repository of installer files)                                         
+    [Parameter(Mandatory = $false)] [string] $GitToken,                                                                             # GitHub Personal Access Token  
+    [Parameter(Mandatory = $false)] [string] $ProGetFeedApiKey,                                                                     # ProGet Feed API Key (Feed of choco-packages)
+    [Parameter(Mandatory = $false)] [string] $ProGetAssetApiKey,                                                                    # ProGet Asset API Key (Asset Repository of installer files)                                         
     [Parameter(Mandatory)] [string] $ProGetBaseUrl,                                                                                 # e.g. http://PSC-SWREPO1:8624     
     [Parameter(Mandatory)] [string] $ProGetAssetDir,                                                                                # e.g. choco-assets   
     [Parameter(Mandatory)] [string] $ProGetChocoFeedName,                                                                           # e.g. internal-choco   
