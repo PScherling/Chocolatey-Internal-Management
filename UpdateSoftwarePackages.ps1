@@ -100,9 +100,9 @@
 
 param(
     [Parameter(Mandatory = $false)] [ValidateSet('ALL','API','WEB','LOCAL')] [string] $UpdateOption = "ALL",                        # e.g. ALL, API, WEB, LOCAL | Default = ALL
-    [Parameter(Mandatory)] [string] $GitToken,                                                                                      # GitHub Personal Access Token  
-    [Parameter(Mandatory)] [string] $ProGetFeedApiKey,                                                                              # ProGet Feed API Key (Feed of choco-packages)
-    [Parameter(Mandatory)] [string] $ProGetAssetApiKey,                                                                             # ProGet Asset API Key (Asset Repository of installer files)                                         
+    [Parameter(Mandatory = $false)] [string] $GitToken,                                                                                      # GitHub Personal Access Token  
+    [Parameter(Mandatory = $false)] [string] $ProGetFeedApiKey,                                                                              # ProGet Feed API Key (Feed of choco-packages)
+    [Parameter(Mandatory = $false)] [string] $ProGetAssetApiKey,                                                                             # ProGet Asset API Key (Asset Repository of installer files)                                         
     [Parameter(Mandatory)] [string] $ProGetBaseUrl,                                                                                 # e.g. http://PSC-SWREPO1:8624     
     [Parameter(Mandatory)] [string] $ProGetAssetDir,                                                                                # e.g. choco-assets   
     [Parameter(Mandatory)] [string] $ProGetChocoFeedName,                                                                           # e.g. internal-choco   
@@ -871,25 +871,28 @@ if($selectedUpdateOption -eq "ALL"){
             }
         }
 
-        <#
-        Write-Log "Waiting for GitHub API Token..."
-        while([string]::IsNullOrEmpty($GitToken)){
-            $GitToken = Read-Host -Prompt " Enter your GitHub API Token"
-            #Write-Log "User input for API Token: $GitToken"
-        }
+        if(-not $GitToken -or -not $ProGetAssetApiKey -or -not $ProGetFeedApiKey){
+            Write-Log "Some API Tokens are missing."
+        
+            #Write-Log "Waiting for GitHub API Token..."
+            while([string]::IsNullOrEmpty($GitToken)){
+                $GitToken = Read-Host -Prompt " Enter your GitHub API Token"
+                #Write-Log "User input for API Token: $GitToken"
+            }
 
-        Write-Log "Waiting for ProGet Asset API Token..."
-        while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
-            $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
-            #Write-Log "User input for API Token: $GitToken"
-        }
+            #Write-Log "Waiting for ProGet Asset API Token..."
+            while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
+                $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
+                #Write-Log "User input for API Token: $GitToken"
+            }
 
-        Write-Log "Waiting for ProGet Feed API Token..."
-        while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
-            $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
-            #Write-Log "User input for API Token: $GitToken"
+            #Write-Log "Waiting for ProGet Feed API Token..."
+            while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
+                $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
+                #Write-Log "User input for API Token: $GitToken"
+            }
         }
-        #>
+        
     }
     elseif($userInput -eq "N"){
         Exit
@@ -917,25 +920,27 @@ elseif($selectedUpdateOption -eq "API"){
         }
     }
 
-    <#
-    Write-Log "Waiting for API Token..."
-    while([string]::IsNullOrEmpty($GitToken)){
-        $GitToken = Read-Host -Prompt " Enter your GitHub API Token"
-        #Write-Log "User input for API Token: $GitToken"
-    }
+    if(-not $GitToken -or -not $ProGetAssetApiKey -or -not $ProGetFeedApiKey){
+        Write-Log "Some API Tokens are missing."
+    
+        #Write-Log "Waiting for GitHub API Token..."
+        while([string]::IsNullOrEmpty($GitToken)){
+            $GitToken = Read-Host -Prompt " Enter your GitHub API Token"
+            #Write-Log "User input for API Token: $GitToken"
+        }
 
-    Write-Log "Waiting for ProGet Asset API Token..."
-    while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
-        $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
-        #Write-Log "User input for API Token: $GitToken"
-    }
+        #Write-Log "Waiting for ProGet Asset API Token..."
+        while([string]::IsNullOrEmpty($ProGetAssetApiKey)){
+            $ProGetAssetApiKey = Read-Host -Prompt " Enter your ProGet Asset API Token"
+            #Write-Log "User input for API Token: $GitToken"
+        }
 
-    Write-Log "Waiting for ProGet Feed API Token..."
-    while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
-        $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
-        #Write-Log "User input for API Token: $GitToken"
+        #Write-Log "Waiting for ProGet Feed API Token..."
+        while([string]::IsNullOrEmpty($ProGetFeedApiKey)){
+            $ProGetFeedApiKey = Read-Host -Prompt " Enter your ProGet Feed API Token"
+            #Write-Log "User input for API Token: $GitToken"
+        }
     }
-    #>
 }
 <#
 elseif($selectedUpdateOption -eq "WEB"){
