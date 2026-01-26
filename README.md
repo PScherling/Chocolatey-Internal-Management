@@ -105,6 +105,10 @@ And two API keys:
    - NuGet feed push endpoint used by `choco push`:
      - `http(s)://<server>:<port>/nuget/<feedName>/`
 
+For more information how to setup ProGet with Chocolatey visit: 
+- https://docs.inedo.com/docs/proget/overview
+- https://docs.chocolatey.org/en-us/features/host-packages/
+
 ---
 
 ## Supported installer types
