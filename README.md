@@ -6,7 +6,7 @@
 # Chocolatey-Internal-Offline-Management
 
 A PowerShell toolkit to **create and maintain internal/offline Chocolatey packages** backed by **ProGet**.
-I Started this project in case the "Chocolatey for Busniess" Solution is not applicable and you can only host the "Free" Variants.
+I Started this project in case the "Chocolatey for Busniess" solution is not applicable or you want to extend the "C4B" variant by yourself or you can only host the "Free FOSS" variant.
 
 This repository focuses on a practical enterprise workflow:
 
