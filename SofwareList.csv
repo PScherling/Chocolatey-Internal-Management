@@ -1,0 +1,5 @@
+Publisher;SoftwareName;SubName1;SubName2;PreferredExtension;Arch;UpdateOption;WebLink
+Microsoft;Edge;;;.msi;x64;API;
+Microsoft;EdgeWebView2Runtime;;;.exe;x64;API;
+Notepad++;Notepad++;;;.exe;x64;API;
+
