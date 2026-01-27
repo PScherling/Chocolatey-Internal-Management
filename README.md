@@ -46,7 +46,7 @@ Automates the initial creation of an internal Chocolatey package:
 - packs `.nupkg` and pushes it to ProGet feed
 
 ### 2) `UpdateSoftwarePackages.ps1`
-Automates updating existing packages:
+Automates updating existing packages based on the 'SoftwareList.csv':
 
 - reads `SoftwareList.csv`
 - checks latest versions via:
@@ -62,6 +62,10 @@ Automates updating existing packages:
   - `tools\chocolateyinstall.ps1` (urls/fileType/checksums)
 - packs and pushes updated `.nupkg` to ProGet feed
 - writes detailed logs + warning/error summary
+
+<img width="1579" height="843" alt="image" src="https://github.com/user-attachments/assets/4bc45d5c-922d-4839-84a2-493a2620f027" />
+<img width="1579" height="843" alt="image" src="https://github.com/user-attachments/assets/f4dce42d-1074-45e2-aa4e-cd1193fddaba" />
+<img width="1579" height="843" alt="image" src="https://github.com/user-attachments/assets/40e12f7a-8678-4ef9-afad-c4e3228adda2" />
 
 ---
 
