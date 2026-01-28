@@ -126,14 +126,6 @@ Write-Host "Staring installation of Chocolatey 4 Business"
 if($CertThumbprint){
     Write-Host -ForegroundColor Green "We are good to go"
 
-    # Configure new internal repository
-    Write-Host "Configure new internal repository"
-    choco source add -n="nexus-internal" -s="$NexusNuGetUrl" --priority=1
-
-    # Remove publich repository
-    Write-Host "Remove publich repository"
-    choco source disable -n="chocolatey"
-
     if(!(Test-Path "$($pkgDir)")){
         New-Item "$($pkgDir)" -ItemType Directory | Out-Null
     }
@@ -176,6 +168,13 @@ if($CertThumbprint){
         choco push "$($_.FullName)" --source="$($NexusNuGetUrl)" --api-key="$($NexusRepoKey)"
     }
 
+    # Configure new internal repository
+    Write-Host "Configure new internal repository"
+    choco source add -n="nexus-internal" -s="$NexusNuGetUrl" --priority=1
+
+    # Remove public repository
+    Write-Host "Remove public repository"
+    choco source disable -n="chocolatey"
 
     # ====== Install License
     Write-Host "Install License"
