@@ -31,7 +31,7 @@ param(
 
             $OpenFileDialog.filename
         }
-    ),                       # e.g. D:\License.xml
+    ),                                                                # e.g. D:\License.xml
     #[Parameter(Mandatory)][string]$ServerFqdn,                        # e.g. psc-c4bsrv.local
     [Parameter(Mandatory)][string]$NexusRepoName,                     # e.g. nuget-hosted
     [Parameter(Mandatory)][string]$BusinessLicenseGuid,               # e.g. You get this from the chocolatey.license.xml file
