@@ -1,9 +1,41 @@
 param(
+    [ValidateScript({
+        if (-not (Test-Path (Convert-Path $_))) {
+            throw "License file does not exist at '$($_)'. Please provide a valid -LicensePath"
+        }
+        try {
+            [xml]$License = Get-Content $_
+            $Expiry = Get-Date $License.license.expiration
+            if (-not $Expiry -or $Expiry -lt (Get-Date)) {throw}
+        } catch {
+            throw "License '$($_)' is not valid.$(if ($Expiry) {" It expired at '$($Expiry)'."})"
+        }
+        $true
+    })]
+    [Parameter(Mandatory)][string]$LicenseFile = $(
+        if (Test-Path $PSScriptRoot\files\chocolatey.license.xml) {
+            # Offline setup has been run, we should use that license.
+            Join-Path $PSScriptRoot "files\chocolatey.license.xml"
+        } elseif (Test-Path $env:ChocolateyInstall\license\chocolatey.license.xml) {
+            # Chocolatey is already installed, we can use that license.
+            Join-Path $env:ChocolateyInstall "license\chocolatey.license.xml"
+        } else {
+            # Prompt the user for the license.
+            $Wshell = New-Object -ComObject Wscript.Shell
+            $null = $Wshell.Popup('You will need to provide the license file location. Please select your Chocolatey License in the next file dialog.')
+            $null = [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms")
+            $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+            $OpenFileDialog.initialDirectory = "$env:USERPROFILE\Downloads"
+            $OpenFileDialog.filter = 'All Files (*.*)| *.*'
+            $null = $OpenFileDialog.ShowDialog()
+
+            $OpenFileDialog.filename
+        }
+    ),                       # e.g. D:\License.xml
     #[Parameter(Mandatory)][string]$ServerFqdn,                        # e.g. psc-c4bsrv.local
     [Parameter(Mandatory)][string]$NexusRepoName,                     # e.g. nuget-hosted
     [Parameter(Mandatory)][string]$BusinessLicenseGuid,               # e.g. You get this from the chocolatey.license.xml file
     [Parameter(Mandatory)][string]$NexusRepoKey,                      # e.g. You get this from http://localhost:8081/#user/NuGetApiToken
-    [Parameter(Mandatory)][string]$LicenseFile,                       # e.g. D:\License.xml
     [Parameter(Mandatory)][string]$DBUser,                            # e.g. DB User Name | Default is 'ChocoUser'
     [Parameter(Mandatory)][string]$DBUserPassword,                    # e.g. Provide a super hard password!
     [Parameter(Mandatory)][string]$LocalAdmin,                        # e.g. Local Windows Admin | Default is 'sysadmineuro'
