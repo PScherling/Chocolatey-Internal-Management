@@ -46,6 +46,7 @@ $CcmServiceUrl      = "https://$($ServerFqdn):$($CcmServicePort)/ChocolateyManag
 
 $pkgDir             = "D:\SetupFiles\Packages"
 
+$LicenseFile = Convert-Path $LicenseFile
 $licDir = Join-Path $env:ProgramData "chocolatey\license"
 
 
@@ -122,6 +123,24 @@ ALTER ROLE [$DatabaseRole] ADD MEMBER [$Username]
 
 
 # ====== START ======
+# Initialize environment, ensure Chocolatey For Business, etc.
+$Licensed = ($($(choco.exe)[0] -match "^Chocolatey (?<Version>\S+)\s*(?<LicenseType>Business)?$") -and $Matches.LicenseType)
+$InstalledLicensePath = "$env:ChocolateyInstall\license\chocolatey.license.xml"
+if (-not $Licensed) {
+    if (-not (Test-Path $InstalledLicensePath)) {
+        if (-not (Test-Path $env:ChocolateyInstall\license)) {
+            $null = New-Item $env:ChocolateyInstall\license -ItemType Directory
+        }
+        Copy-Item $LicensePath $InstalledLicensePath -Force
+    }
+    $ExtensionSource = if (Test-Path $PSScriptRoot\files\chocolatey.extension.*.nupkg) {
+        Convert-Path $PSScriptRoot\files\
+    } else {
+        'https://licensedpackages.chocolatey.org/api/v2/'
+    }
+    choco install chocolatey.extension --source $ExtensionSource --params="'/NoContextMenu'" --confirm
+}
+
 Write-Host "Staring installation of Chocolatey 4 Business"
 if($CertThumbprint){
     Write-Host -ForegroundColor Green "We are good to go"
