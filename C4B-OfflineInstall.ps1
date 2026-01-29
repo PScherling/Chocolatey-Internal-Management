@@ -256,12 +256,14 @@ if($CertThumbprint){
     choco download chocolatey-agent chocolatey.extension chocolatey-management-database chocolatey-management-service chocolatey-management-web --force --source="'https://licensedpackages.chocolatey.org/api/v2/'" --ignore-dependencies --output-directory="$($pkgDir)"  --user="'user'" --password="$($BusinessLicenseGuid)"
 
     # ====== Push downloaded packages to repository
+	Write-Host "=================================================================="
     Write-Host "Push downloaded packages to repository"
     Get-ChildItem "$($pkgDir)" -Filter *.nupkg | Foreach-Object {
-        choco push "$($_.FullName)" --source="$($NexusNuGetUrl)" --api-key="$($NexusRepoKey) --force"
+        choco push "$($_.FullName)" --source="$($NexusNuGetUrl)" --api-key="$($NexusRepoKey)" --force
     }
 
     # Configure new internal repository
+	Write-Host "=================================================================="
     Write-Host "Configure new internal repository"
     choco source add -n="nexus-internal" -s="$NexusNuGetUrl" --priority=1
 
@@ -270,15 +272,18 @@ if($CertThumbprint){
     choco source disable -n="chocolatey"
 
     # ====== Install License
+	Write-Host "=================================================================="
     Write-Host "Install License"
     New-Item -ItemType Directory -Path $licDir -Force | Out-Null
     Copy-Item "$($LicensePath)" "$($licDir)" -Force
     
     # Install the licensed extension from Nexus
+	Write-Host "=================================================================="
     Write-Host "Install chocolatey.extension"
     choco install chocolatey.extension -y --source="$($NexusNuGetUrl)"
 
     # ====== Install SQL Server and Management
+	Write-Host "=================================================================="
     Write-Host "Install sql-server-express"
     choco install sql-server-express -y --source="$($NexusNuGetUrl)"
     Write-Host "Install sql-server-management-studio"
@@ -292,6 +297,7 @@ if($CertThumbprint){
 
         # ====== Prepare Database
         # https://docs.microsoft.com/en-us/sql/tools/configuration-manager/tcp-ip-properties-ip-addresses-tab
+		Write-Host "=================================================================="
         Write-Host "SQL Server: Configuring Remote Access on SQL Server Express."
         $assemblyList = 'Microsoft.SqlServer.Management.Common', 'Microsoft.SqlServer.Smo', 'Microsoft.SqlServer.SqlWmiManagement', 'Microsoft.SqlServer.SmoExtended'
 
@@ -322,6 +328,7 @@ if($CertThumbprint){
         $tcp.Alter()
 
         # TODO: THIS LINE IS VERSION DEPENDENT! Replace MSSQL16 with whatever version you have
+		Write-Host "=================================================================="
         Write-Host "SQL Server: Setting Mixed Mode Authentication."
         $sqlpkg = choco search sql-server-express --exact --limitoutput
         $pkginfo = "$($sqlpkg)" -split "\|"
@@ -369,6 +376,7 @@ if($CertThumbprint){
 
 
         # ====== Install Chocolatey Central Management Database Package
+		Write-Host "=================================================================="
         $ConnStr = "Server=$($SqlInstance);Database=$($CcmDbName);TrustServerCertificate=True;"
         Write-Host "Server Connection-String: $($ConnStr)"
         choco install chocolatey-management-database -y --source="$($NexusNuGetUrl)" --package-parameters="'/ConnectionString:$($ConnStr);Trusted_Connection=True;'" 
@@ -393,6 +401,7 @@ if($CertThumbprint){
         }
         
         # ====== Install CCM Service (the API / communication layer)
+		Write-Host "=================================================================="
         Write-Host "Install CCM Service (the API / communication layer)"
         choco config set --name="centralManagementServiceUrl" --value="$($CcmServiceUrl)"
         choco install chocolatey-management-service -y --source="$($NexusNuGetUrl)" --package-parameters-sensitive="'/ConnectionString:$($ConnStr);User ID=$($DBUser);Password=$($DBUserPassword); /PortNumber:$($CcmServicePort) /CertificateThumbprint:$($CertThumbprint)'"
@@ -411,6 +420,7 @@ if($CertThumbprint){
 			Write-Host "=================================================================="
             
             # ====== Install CCM Website (IIS front-end)
+			Write-Host "=================================================================="
             Write-Host "Install CCM Website (IIS front-end)"
             Install-WindowsFeature Web-Server,Web-WebSockets,Web-Asp-Net45,Web-Windows-Auth -IncludeManagementTools
 
@@ -423,7 +433,7 @@ if($CertThumbprint){
             choco install chocolatey-management-web -y --source="$($NexusNuGetUrl)" --package-parameters-sensitive="'/ConnectionString:$($ConnStr);User ID=$($DBUser);Password=$($DBUserPassword);'"
             #--package-parameters-sensitive="'/ConnectionString:Server=Localhost\SQLEXPRESS;Database=ChocolateyManagement;User ID=ChocoUser;Password=Ch0c0R0cks;'"
             #--package-parameters="'/ConnectionString:$ConnStr /CentralManagementServiceUrl:$CcmServiceUrl /CertificateThumbprint:$CertThumbprint /WebSiteUrl:$CcmWebUrl'"
-
+			Write-Host "=================================================================="
             Import-Module WebAdministration
             Get-Website | Select-Object Name, State, PhysicalPath, Bindings
         }
