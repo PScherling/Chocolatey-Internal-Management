@@ -1,3 +1,34 @@
+<#
+.SYNOPSIS
+
+
+.DESCRIPTION
+
+
+.LINK
+    https://community.chocolatey.org/packages/chocolatey
+    https://chocolatey.org/install
+    https://community.chocolatey.org/courses/installation/installing?method=completely-offline-install
+	  https://github.com/PScherling
+	
+.NOTES
+          FileName: Update_Windows_Media_OS_RE_PE.ps1
+          Solution: Windows 11 OS Based Annual Base Media Refresh
+          Author: Patrick Scherling
+          Contact: @Patrick Scherling
+          Primary: @Patrick Scherling
+          Created: 2026-01-19
+          Modified: 2026-01-29
+
+          Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
+
+
+
+.EXAMPLE
+
+    Requires administrative privileges.
+#>
+
 param( 
   [Parameter(Mandatory)][string]$DownloadPath                                  # e.g. D:\SetupFiles
 )
