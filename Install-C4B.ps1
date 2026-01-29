@@ -1,3 +1,38 @@
+<#
+.SYNOPSIS
+
+
+.DESCRIPTION
+
+
+.LINK
+    https://community.chocolatey.org/packages/chocolatey
+    https://chocolatey.org/install
+    https://community.chocolatey.org/courses/installation/installing?method=completely-offline-install
+    https://docs.chocolatey.org/en-us/central-management/setup/
+    https://docs.chocolatey.org/en-us/central-management/setup/website/#scenario-three
+    https://docs.chocolatey.org/en-us/central-management/setup/service/#scenario-three
+    https://docs.chocolatey.org/en-us/central-management/setup/database/#scenario-one
+    https://help.sonatype.com/en/install-nexus-repository.html
+	https://github.com/PScherling
+	
+.NOTES
+          FileName: Update_Windows_Media_OS_RE_PE.ps1
+          Solution: Windows 11 OS Based Annual Base Media Refresh
+          Author: Patrick Scherling
+          Contact: @Patrick Scherling
+          Primary: @Patrick Scherling
+          Created: 2026-01-19
+          Modified: 2026-01-29
+
+          Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
+
+
+
+.EXAMPLE
+
+    Requires administrative privileges.
+#>
 param(
     [ValidateScript({
         if (-not (Test-Path (Convert-Path $_))) {
