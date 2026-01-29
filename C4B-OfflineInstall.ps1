@@ -76,11 +76,10 @@ param(
     #[Parameter(Mandatory)][string]$ServerFqdn,                                               # e.g. psc-c4bsrv.local
     [Parameter(Mandatory)] [string] $BusinessLicenseGuid,                                     # e.g. You get this from the chocolatey.license.xml file
     [ValidateSet('http','https')] [string] $Protocol = "http",                                # e.g. Default = "http"
-    [Parameter(Mandatory)] [string] $ProGetSrv,                                               # e.g. "PSC-SWREPO1"
     [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                            # e.g. Default = "8624"
     [Parameter(Mandatory)] [string] $FeedName,                                                # e.g. "choco-internal"
     [Parameter(Mandatory)] [string] $ProGetFeedKey,                                           # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
-    [Parameter(Mandatory)] [string] $DBUser,                                                  # e.g. DB User Name | Default is 'ChocoUser'
+    [Parameter(Mandatory = $false)] [string] $DBUser,                                         # e.g. DB User Name | Default is 'ChocoUser'
     [Parameter(Mandatory)] [string] $DBUserPassword,                                          # e.g. Provide a super hard password!
     [Parameter(Mandatory)] [string] $LocalAdmin,                                              # e.g. Local Windows Admin | Default is 'sysadmineuro'
     [Parameter] [switch] $UseADLoginforDB                                                     # e.g. Use this Switch Parameter if you want to enable DB Login with AD Credentials
@@ -104,7 +103,7 @@ if(-Not $ServerFqdn.endswith($domainName)) {
     $ServerFqdn += "." + $domainName
 }
 
-$ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
+$ProGetBaseUrl                  = "$($Protocol)://$($ServerFqdn):$($ProGetPort)"
 $userInput                      = ""
 $ProGetFeedURI                  = "$($ProGetBaseUrl)/nuget/$($FeedName)/"
 
