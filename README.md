@@ -15,6 +15,9 @@ This repository focuses on a practical enterprise workflow:
 - Packages are **packed and pushed** to a **ProGet NuGet (Chocolatey) feed**
 - Clients install from your internal feed (no public internet dependency)
 
+ ### Disclamer
+ The whole Toolkit is intended for internal feed ONLY usage. Never use this to push packages to public repositories!
+
 ---
 
 ## Why this exists
