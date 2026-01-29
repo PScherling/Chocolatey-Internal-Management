@@ -78,9 +78,8 @@ param(
     [ValidateSet('http','https')][string]$Protocol = "http",                                # e.g. Default = "http"
     [Parameter(Mandatory)][string]$ProGetSrv,                                               # e.g. "PSC-SWREPO1"
     [Parameter(Mandatory = $false)][string] $ProGetPort = "8624",                           # e.g. Default = "8624"
-    [Parameter(Mandatory)][string]$AssetName,                                               # e.g. "choco-assets"
     [Parameter(Mandatory)][string]$FeedName,                                                # e.g. "choco-internal"
-    [Parameter(Mandatory)][string]$ProGetFeedKey                                            # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
+    [Parameter(Mandatory)][string]$ProGetFeedKey,                                           # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
     [Parameter(Mandatory)][string]$DBUser,                                                  # e.g. DB User Name | Default is 'ChocoUser'
     [Parameter(Mandatory)][string]$DBUserPassword,                                          # e.g. Provide a super hard password!
     [Parameter(Mandatory)][string]$LocalAdmin,                                              # e.g. Local Windows Admin | Default is 'sysadmineuro'
@@ -106,11 +105,7 @@ if(-Not $ServerFqdn.endswith($domainName)) {
 }
 
 $ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
-$ToolsDir                       = "$($ChocoPackagesPath)\$($Publisher)\$($SoftwareName)\tools"
-$ProGetAssetFolder              = "$($Publisher)/$($SoftwareName)"
-$FileName                       = "$($SoftwareName)_$($Arch)_$($Version).$($FileType)"
 $userInput                      = ""
-$ProGetAssetURI                 = "$($ProGetBaseUrl)/endpoints/$($AssetName)/content/$($ProGetAssetFolder)/$($FileName)"
 $ProGetFeedURI                  = "$($ProGetBaseUrl)/nuget/$($FeedName)/"
 
 
@@ -273,7 +268,7 @@ if($CertThumbprint){
 	Write-Host "=================================================================="
     Write-Host "Push downloaded packages to repository"
     Get-ChildItem "$($pkgDir)" -Filter *.nupkg | Foreach-Object {
-        choco push "$($_.FullName)" --source="$($ProGetFeedURI)" --api-key="$($NexusRepoKey)" --force
+        choco push "$($_.FullName)" --source="$($ProGetFeedURI)" --api-key="$($ProGetFeedKey)" --force
     }
 
     # Configure new internal repository
@@ -291,7 +286,7 @@ if($CertThumbprint){
     New-Item -ItemType Directory -Path $licDir -Force | Out-Null
     Copy-Item "$($LicensePath)" "$($licDir)" -Force
     
-    # Install the licensed extension from Nexus
+    # Install the licensed extension from internal feed
 	Write-Host "=================================================================="
     Write-Host "Install chocolatey.extension"
     choco install chocolatey.extension -y --source="$($ProGetFeedURI)"
