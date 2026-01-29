@@ -9,11 +9,11 @@
     https://community.chocolatey.org/packages/chocolatey
     https://chocolatey.org/install
     https://community.chocolatey.org/courses/installation/installing?method=completely-offline-install
-	  https://github.com/PScherling
+	https://github.com/PScherling
 	
 .NOTES
-          FileName: Update_Windows_Media_OS_RE_PE.ps1
-          Solution: Windows 11 OS Based Annual Base Media Refresh
+          FileName: chocolatey-OfflineInstall.ps1
+          Solution: 
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
