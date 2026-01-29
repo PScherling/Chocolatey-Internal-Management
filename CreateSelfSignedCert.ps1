@@ -1,17 +1,63 @@
-# ---- SETTINGS ----
-$Fqdn      = "psc-c4bsrv.local"
-$ShortName = "psc-c4bsrv"
-$Friendly  = "C4B Self-Signed TLS"
-$Years     = 1
-$OutDir    = "D:\certs"
+<#
+.SYNOPSIS
+
+
+.DESCRIPTION
+
+
+.LINK
+    
+	https://github.com/PScherling
+	
+.NOTES
+          FileName: CreateSelfSignedCert.ps1
+          Solution: 
+          Author: Patrick Scherling
+          Contact: @Patrick Scherling
+          Primary: @Patrick Scherling
+          Created: 2026-01-19
+          Modified: 2026-01-29
+
+          Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
+
+
+
+.EXAMPLE
+
+    Requires administrative privileges.
+#>
+param(
+    [Parameter][string]$Friendly = "C4B Self-Signed TLS",            # e.g. C4B Self-Signed TLS
+    [Parameter][int]$Years = 1,                                      # e.g. 1
+    [Parameter][string]$OutDir = "D:\certs"                          # e.g. D:\certs
+)
+
+$ErrorActionPreference = 'Stop'
+
+# Require admin
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
+  throw "Run PowerShell as Administrator."
+}
+
+# ====== YOUR ENV SETTINGS ======
+# Find FDQN for current machine
+$ServerName = [System.Net.Dns]::GetHostName()
+$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+
+if(-Not $ServerName.endswith($domainName)) {
+    $ServerFqdn += "." + $domainName
+}
+
+
 
 # ---- CREATE CERT (in LocalMachine\My) ----
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 
 $params = @{
   Type                  = 'Custom'
-  Subject               = "CN=$($Fqdn)"
-  DnsName               = @($Fqdn, $ShortName)
+  Subject               = "CN=$($ServerFqdn)"
+  DnsName               = @($ServerFqdn, $ServerName)
   KeyAlgorithm          = 'RSA'
   KeyLength             = 2048
   HashAlgorithm         = 'SHA256'
