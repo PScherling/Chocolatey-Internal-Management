@@ -255,7 +255,7 @@ if($CertThumbprint){
     # ====== Push downloaded packages to repository
     Write-Host "Push downloaded packages to repository"
     Get-ChildItem "$($pkgDir)" -Filter *.nupkg | Foreach-Object {
-        choco push "$($_.FullName)" --source="$($NexusNuGetUrl)" --api-key="$($NexusRepoKey)"
+        choco push "$($_.FullName)" --source="$($NexusNuGetUrl)" --api-key="$($NexusRepoKey) --force"
     }
 
     # Configure new internal repository
