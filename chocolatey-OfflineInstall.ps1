@@ -1,14 +1,52 @@
-param(
-  [Parameter(Mandatory)]
-  [string]$NupkgPath
+param( 
+  [Parameter(Mandatory)][string]$DownloadPath                                  # e.g. D:\SetupFiles
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference        = 'Stop'
+$ChocoUrl                     = "https://community.chocolatey.org/api/v2/package/chocolatey/2.6.0"
+$NupkgPath                    = "$($DownloadPath)\chocolatey.nupkg"
+
+# Downloading File
+function Start-DownloadInstallerFile {
+    param (
+        [string]$Url,
+        [string]$DestinationPath
+    )
+
+    try {
+        Start-BitsTransfer -Source $Url -Destination $DestinationPath -ErrorAction Stop
+        Write-Host "Downloaded successfully using BITS: $DestinationPath"
+    } catch {
+        #Write-Warning "BITS download failed. Trying fallback method."
+        Write-Host -ForegroundColor Yellow "WARNING: BITS download failed. Trying fallback method - $_"
+
+        # Fallback: Use Invoke-WebRequest
+        try {
+            Write-Host "URL: $Url"
+            Invoke-WebRequest -Uri $Url -OutFile $DestinationPath
+            Write-Host "Downloaded successfully with fallback method."
+        } catch {
+            
+            throw "ERROR: Fallback download failed - $_"
+
+            continue
+        }
+    }
+
+
+}
 
 # Require admin
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
   throw "Run PowerShell as Administrator."
+}
+
+# Start Download
+try{
+  Start-DownloadInstallerFile -Url "$ChocoUrl" -DestinationPath "$NupkgPath"
+} catch{
+  throw "Download could not be started - $_"
 }
 
 if (-not (Test-Path $NupkgPath)) {
