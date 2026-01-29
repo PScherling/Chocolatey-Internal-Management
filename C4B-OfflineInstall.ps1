@@ -51,7 +51,7 @@ param(
         }
         $true
     })]
-    [Parameter(Mandatory)][string]$LicenseFile = $(
+    [Parameter(Mandatory)][string]$LicensePath = $(
         if (Test-Path $PSScriptRoot\files\chocolatey.license.xml) {
             # Offline setup has been run, we should use that license.
             Join-Path $PSScriptRoot "files\chocolatey.license.xml"
@@ -117,7 +117,7 @@ $CcmServiceUrl      = "https://$($ServerFqdn):$($CcmServicePort)/ChocolateyManag
 
 $pkgDir             = "D:\SetupFiles\Packages"
 
-$LicenseFile = Convert-Path $LicenseFile
+$LicensePath = Convert-Path $LicensePath
 $licDir = Join-Path $env:ProgramData "chocolatey\license"
 
 
@@ -269,7 +269,7 @@ if($CertThumbprint){
     # ====== Install License
     Write-Host "Install License"
     New-Item -ItemType Directory -Path $licDir -Force | Out-Null
-    Copy-Item "$($LicenseFile)" "$($licDir)" -Force
+    Copy-Item "$($LicensePath)" "$($licDir)" -Force
     
     # Install the licensed extension from Nexus
     Write-Host "Install chocolatey.extension"
