@@ -27,9 +27,9 @@
     Requires administrative privileges.
 #>
 param(
-    [Parameter][string]$Friendly = "C4B Self-Signed TLS",            # e.g. C4B Self-Signed TLS
-    [Parameter][int]$Years = 1,                                      # e.g. 1
-    [Parameter][string]$OutDir = "D:\certs"                          # e.g. D:\certs
+    [Parameter(Mandatory = $false)] [string] $Friendly = "C4B Self-Signed TLS",            # e.g. C4B Self-Signed TLS
+    [Parameter(Mandatory = $false)] [int] $Years = 1,                                      # e.g. 1
+    [Parameter(Mandatory = $false)] [string] $OutDir = "D:\certs"                          # e.g. D:\certs
 )
 
 $ErrorActionPreference = 'Stop'
