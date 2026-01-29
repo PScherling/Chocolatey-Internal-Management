@@ -30,7 +30,7 @@
 #>
 
 param( 
-  [Parameter(Mandatory)][string]$DownloadPath                                  # e.g. D:\SetupFiles
+  [Parameter(Mandatory)] [string] $DownloadPath                                  # e.g. D:\SetupFiles
 )
 
 $ErrorActionPreference        = 'Stop'
