@@ -15,6 +15,7 @@
     https://docs.chocolatey.org/en-us/central-management/setup/service/#scenario-three
     https://docs.chocolatey.org/en-us/central-management/setup/database/#scenario-one
     https://help.sonatype.com/en/install-nexus-repository.html
+    https://docs.inedo.com/docs/proget/overview
 	https://learn.microsoft.com/de-de/troubleshoot/sql/releases/download-and-install-latest-updates
 	https://learn.microsoft.com/de-de/troubleshoot/sql/releases/download-and-install-latest-updates#sql-server-2025
 	https://learn.microsoft.com/de-de/powershell/module/microsoft.powershell.management/get-service?view=powershell-7.5
@@ -30,6 +31,7 @@
           Modified: 2026-01-29
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
+          Version - 0.0.2 - (2026-01-29) - Changed from Nexus to ProGet compatibility
 
 
 
@@ -70,15 +72,19 @@ param(
 
             $OpenFileDialog.filename
         }
-    ),                                                                # e.g. D:\License.xml
-    #[Parameter(Mandatory)][string]$ServerFqdn,                        # e.g. psc-c4bsrv.local
-    [Parameter(Mandatory)][string]$NexusRepoName,                     # e.g. nuget-hosted
-    [Parameter(Mandatory)][string]$BusinessLicenseGuid,               # e.g. You get this from the chocolatey.license.xml file
-    [Parameter(Mandatory)][string]$NexusRepoKey,                      # e.g. You get this from http://localhost:8081/#user/NuGetApiToken
-    [Parameter(Mandatory)][string]$DBUser,                            # e.g. DB User Name | Default is 'ChocoUser'
-    [Parameter(Mandatory)][string]$DBUserPassword,                    # e.g. Provide a super hard password!
-    [Parameter(Mandatory)][string]$LocalAdmin,                        # e.g. Local Windows Admin | Default is 'sysadmineuro'
-    [Parameter][switch]$UseADLoginforDB                               # e.g. Use this Switch Parameter if you want to enable DB Login with AD Credentials
+    ),                                                                                      # e.g. D:\License.xml
+    #[Parameter(Mandatory)][string]$ServerFqdn,                                             # e.g. psc-c4bsrv.local
+    [Parameter(Mandatory)][string]$BusinessLicenseGuid,                                     # e.g. You get this from the chocolatey.license.xml file
+    [ValidateSet('http','https')][string]$Protocol = "http",                                # e.g. Default = "http"
+    [Parameter(Mandatory)][string]$ProGetSrv,                                               # e.g. "PSC-SWREPO1"
+    [Parameter(Mandatory = $false)][string] $ProGetPort = "8624",                           # e.g. Default = "8624"
+    [Parameter(Mandatory)][string]$AssetName,                                               # e.g. "choco-assets"
+    [Parameter(Mandatory)][string]$FeedName,                                                # e.g. "choco-internal"
+    [Parameter(Mandatory)][string]$ProGetFeedKey                                            # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
+    [Parameter(Mandatory)][string]$DBUser,                                                  # e.g. DB User Name | Default is 'ChocoUser'
+    [Parameter(Mandatory)][string]$DBUserPassword,                                          # e.g. Provide a super hard password!
+    [Parameter(Mandatory)][string]$LocalAdmin,                                              # e.g. Local Windows Admin | Default is 'sysadmineuro'
+    [Parameter][switch]$UseADLoginforDB                                                     # e.g. Use this Switch Parameter if you want to enable DB Login with AD Credentials
     
 )
 
@@ -99,7 +105,15 @@ if(-Not $ServerFqdn.endswith($domainName)) {
     $ServerFqdn += "." + $domainName
 }
 
-$NexusNuGetUrl      = "http://$($ServerFqdn):8081/repository/$($NexusRepoName)/"
+$ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
+$ToolsDir                       = "$($ChocoPackagesPath)\$($Publisher)\$($SoftwareName)\tools"
+$ProGetAssetFolder              = "$($Publisher)/$($SoftwareName)"
+$FileName                       = "$($SoftwareName)_$($Arch)_$($Version).$($FileType)"
+$userInput                      = ""
+$ProGetAssetURI                 = "$($ProGetBaseUrl)/endpoints/$($AssetName)/content/$($ProGetAssetFolder)/$($FileName)"
+$ProGetFeedURI                  = "$($ProGetBaseUrl)/nuget/$($FeedName)/"
+
+
 $CertThumbprint     = (Get-ChildItem Cert:\LocalMachine\My |
     Where-Object {$_.Subject -like "*CN=$ServerFqdn*"} |
     Sort-Object NotAfter -Descending |
@@ -259,13 +273,13 @@ if($CertThumbprint){
 	Write-Host "=================================================================="
     Write-Host "Push downloaded packages to repository"
     Get-ChildItem "$($pkgDir)" -Filter *.nupkg | Foreach-Object {
-        choco push "$($_.FullName)" --source="$($NexusNuGetUrl)" --api-key="$($NexusRepoKey)" --force
+        choco push "$($_.FullName)" --source="$($ProGetFeedURI)" --api-key="$($NexusRepoKey)" --force
     }
 
     # Configure new internal repository
 	Write-Host "=================================================================="
     Write-Host "Configure new internal repository"
-    choco source add -n="nexus-internal" -s="$NexusNuGetUrl" --priority=1
+    choco source add -n="choco-internal" -s="$ProGetFeedURI" --priority=1
 
     # Remove public repository
     Write-Host "Remove public repository"
@@ -280,14 +294,14 @@ if($CertThumbprint){
     # Install the licensed extension from Nexus
 	Write-Host "=================================================================="
     Write-Host "Install chocolatey.extension"
-    choco install chocolatey.extension -y --source="$($NexusNuGetUrl)"
+    choco install chocolatey.extension -y --source="$($ProGetFeedURI)"
 
     # ====== Install SQL Server and Management
 	Write-Host "=================================================================="
     Write-Host "Install sql-server-express"
-    choco install sql-server-express -y --source="$($NexusNuGetUrl)"
+    choco install sql-server-express -y --source="$($ProGetFeedURI)"
     Write-Host "Install sql-server-management-studio"
-    choco install sql-server-management-studio -y --source="$($NexusNuGetUrl)"
+    choco install sql-server-management-studio -y --source="$($ProGetFeedURI)"
 
     
     if(Get-Service | Where-Object Name -match "MSSQL\$\w+|MSSQLSERVER"){
@@ -379,7 +393,7 @@ if($CertThumbprint){
 		Write-Host "=================================================================="
         $ConnStr = "Server=$($SqlInstance);Database=$($CcmDbName);TrustServerCertificate=True;"
         Write-Host "Server Connection-String: $($ConnStr)"
-        choco install chocolatey-management-database -y --source="$($NexusNuGetUrl)" --package-parameters="'/ConnectionString:$($ConnStr);Trusted_Connection=True;'" 
+        choco install chocolatey-management-database -y --source="$($ProGetFeedURI)" --package-parameters="'/ConnectionString:$($ConnStr);Trusted_Connection=True;'" 
         #--package-parameters='/ConnectionString=""Server=Localhost\SQLEXPRESS;Database='$($CcmDbName)';Trusted_Connection=true;""'
 
 
@@ -404,7 +418,7 @@ if($CertThumbprint){
 		Write-Host "=================================================================="
         Write-Host "Install CCM Service (the API / communication layer)"
         choco config set --name="centralManagementServiceUrl" --value="$($CcmServiceUrl)"
-        choco install chocolatey-management-service -y --source="$($NexusNuGetUrl)" --package-parameters-sensitive="'/ConnectionString:$($ConnStr);User ID=$($DBUser);Password=$($DBUserPassword); /PortNumber:$($CcmServicePort) /CertificateThumbprint:$($CertThumbprint)'"
+        choco install chocolatey-management-service -y --source="$($ProGetFeedURI)" --package-parameters-sensitive="'/ConnectionString:$($ConnStr);User ID=$($DBUser);Password=$($DBUserPassword); /PortNumber:$($CcmServicePort) /CertificateThumbprint:$($CertThumbprint)'"
 
         Write-Host "Set Firewall Rule"
         New-NetFirewallRule -DisplayName "CCM Service $($CcmServicePort)" -Direction Inbound -Protocol TCP -LocalPort $($CcmServicePort) -Action Allow
@@ -425,12 +439,12 @@ if($CertThumbprint){
             Install-WindowsFeature Web-Server,Web-WebSockets,Web-Asp-Net45,Web-Windows-Auth -IncludeManagementTools
 
             Write-Host "Install dotnet-aspnetcoremodule-v2, dotnet-8.0-runtime and dotnet-8.0-aspnetruntime"
-            choco install dotnet-aspnetcoremodule-v2 -y --source="$($NexusNuGetUrl)"
-            choco install dotnet-8.0-runtime -y --source="$($NexusNuGetUrl)"
-            choco install dotnet-8.0-aspnetruntime -y --source="$($NexusNuGetUrl)"
+            choco install dotnet-aspnetcoremodule-v2 -y --source="$($ProGetFeedURI)"
+            choco install dotnet-8.0-runtime -y --source="$($ProGetFeedURI)"
+            choco install dotnet-8.0-aspnetruntime -y --source="$($ProGetFeedURI)"
 
             Write-Host "Install chocolatey-management-web"
-            choco install chocolatey-management-web -y --source="$($NexusNuGetUrl)" --package-parameters-sensitive="'/ConnectionString:$($ConnStr);User ID=$($DBUser);Password=$($DBUserPassword);'"
+            choco install chocolatey-management-web -y --source="$($ProGetFeedURI)" --package-parameters-sensitive="'/ConnectionString:$($ConnStr);User ID=$($DBUser);Password=$($DBUserPassword);'"
             #--package-parameters-sensitive="'/ConnectionString:Server=Localhost\SQLEXPRESS;Database=ChocolateyManagement;User ID=ChocoUser;Password=Ch0c0R0cks;'"
             #--package-parameters="'/ConnectionString:$ConnStr /CentralManagementServiceUrl:$CcmServiceUrl /CertificateThumbprint:$CertThumbprint /WebSiteUrl:$CcmWebUrl'"
 			Write-Host "=================================================================="
