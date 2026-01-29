@@ -398,8 +398,8 @@ if($CertThumbprint){
         Add-DatabaseUserAndRoles -DatabaseName "$($CcmDbName)" -Username "$($DBUser)" -SqlUserPassword "$($DBUserPassword)" -CreateSqlUser  -DatabaseRoles @('db_datareader', 'db_datawriter')
 
         # Add Local Windows User:
-        Write-Host "Add Local Windows User"
-        Add-DatabaseUserAndRoles -DatabaseName "$($CcmDbName)" -Username "$(hostname)\$($LocalAdmin)" -DatabaseRoles @('db_datareader', 'db_datawriter')
+        #Write-Host "Add Local Windows User"
+        #Add-DatabaseUserAndRoles -DatabaseName "$($CcmDbName)" -Username "$(hostname)\$($LocalAdmin)" -DatabaseRoles @('db_datareader', 'db_datawriter')
 
         # Add Active Directory Domain User to a default instance of SQL Server:
         if($UseADLoginforDB){
