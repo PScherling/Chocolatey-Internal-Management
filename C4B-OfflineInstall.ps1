@@ -15,6 +15,9 @@
     https://docs.chocolatey.org/en-us/central-management/setup/service/#scenario-three
     https://docs.chocolatey.org/en-us/central-management/setup/database/#scenario-one
     https://help.sonatype.com/en/install-nexus-repository.html
+	https://learn.microsoft.com/de-de/troubleshoot/sql/releases/download-and-install-latest-updates
+	https://learn.microsoft.com/de-de/troubleshoot/sql/releases/download-and-install-latest-updates#sql-server-2025
+	https://learn.microsoft.com/de-de/powershell/module/microsoft.powershell.management/get-service?view=powershell-7.5
 	https://github.com/PScherling
 	
 .NOTES
