@@ -46,7 +46,7 @@ $ServerName = [System.Net.Dns]::GetHostName()
 $domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
 
 if(-Not $ServerName.endswith($domainName)) {
-    $ServerFqdn += "." + $domainName
+    $ServerFqdn = "$($ServerName).$($domainName)"
 }
 
 
