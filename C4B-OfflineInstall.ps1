@@ -212,9 +212,12 @@ if (-not $Licensed) {
     choco install chocolatey.extension --source $ExtensionSource --params="'/NoContextMenu'" --confirm
 }
 
-Write-Host "Staring installation of Chocolatey 4 Business"
+Write-Host "
+==================================================================
+Staring installation of Chocolatey 4 Business"
 if($CertThumbprint){
     Write-Host -ForegroundColor Green "We are good to go"
+	Write-Host "=================================================================="
 
     if(!(Test-Path "$($pkgDir)")){
         New-Item "$($pkgDir)" -ItemType Directory | Out-Null
@@ -283,7 +286,9 @@ if($CertThumbprint){
 
     
     if(Get-Service | Where-Object Name -match "MSSQL\$\w+|MSSQLSERVER"){
+		Write-Host "=================================================================="
         Write-Host -ForegroundColor Green "We are good to go"
+		Write-Host "=================================================================="
 
         # ====== Prepare Database
         # https://docs.microsoft.com/en-us/sql/tools/configuration-manager/tcp-ip-properties-ip-addresses-tab
@@ -401,7 +406,9 @@ if($CertThumbprint){
 
 
         if(Get-Service | Where-Object DisplayName -match "Chocolatey.*Management.*Service"){
+			Write-Host "=================================================================="
             Write-Host -ForegroundColor Green "We are good to go"
+			Write-Host "=================================================================="
             
             # ====== Install CCM Website (IIS front-end)
             Write-Host "Install CCM Website (IIS front-end)"
