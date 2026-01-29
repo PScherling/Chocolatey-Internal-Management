@@ -3,7 +3,7 @@ param(
 )
 
 $ErrorActionPreference        = 'Stop'
-$ChocoUrl                     = "https://community.chocolatey.org/api/v2/package/chocolatey/2.6.0"
+$ChocoUrl                     = "https://community.chocolatey.org/api/v2/package/chocolatey"
 $NupkgPath                    = "$($DownloadPath)\chocolatey.nupkg"
 
 # Downloading File
