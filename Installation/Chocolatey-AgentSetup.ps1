@@ -41,6 +41,10 @@
     Requires administrative privileges.
 #>
 
+param(
+  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert
+)
+
 $ErrorActionPreference = 'Stop'
 
 # Require admin
@@ -67,6 +71,14 @@ if(choco){
   }
   else{
     Write-Host -ForegroundColor Green "We are good to go"
+  }
+
+  if($UseSelfSignedCert){
+    Write-Host "Importing self signed server certificate"
+    $CertShare = "\\$($ServerFqdn)\certs"
+    Get-ChildItem -Path $CertShare -Filter *.cer | Where-Object { $_.BaseName -like "*selfsigned*"} | Sort-Object CreationTime -Descending | Select-Object -First 1 | Out-Null
+    Import-Certificate -FilePath $CertPath -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
+    Import-Certificate -FilePath $CertPath -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
   }
 
   Write-Host "
