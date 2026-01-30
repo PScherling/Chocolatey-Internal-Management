@@ -32,10 +32,15 @@
 
 param( 
   [Parameter(Mandatory)] [string] $DownloadPath                                  # e.g. D:\SetupFiles
+  [Parameter(Mandatory = $false)] [switch] $UseInternalUrl						 # e.g. If you enable this switch, you must provide the URL to your internal repo like "http://psc-swrepo1:8624/endpoints/choco-assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
 )
 
 $ErrorActionPreference        = 'Stop'
-$ChocoUrl                     = "https://community.chocolatey.org/api/v2/package/chocolatey"
+if($UseInternalUrl){
+	$ChocoUrl = Read-Host -Prompt "Enter the Url to the package (e.g. 'http://sw-repo:8624/endpoints/choco-assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg')"
+}else{
+	$ChocoUrl                     = "https://community.chocolatey.org/api/v2/package/chocolatey"
+}
 $NupkgPath                    = "$($DownloadPath)\chocolatey.nupkg"
 
 # Downloading File
