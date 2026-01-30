@@ -84,7 +84,7 @@ param(
     [Parameter(Mandatory)] [string] $ProGetFeedKey,                                           # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
 	[Parameter(Mandatory = $false)] 
 	[ValidateSet('DB','LOCAL','DOM')] 
-	[string] $DBLoginMethod = "DB"                                             				  # e.g. Use this Parameter to set DB Login | Default is DB User
+	[string] $DBLoginMethod = "DB",                                            				  # e.g. Use this Parameter to set DB Login | Default is DB User
     [Parameter(Mandatory = $false)] [string] $DBUser = "ChocoUser",                           # e.g. DB User Name | Default is 'ChocoUser'
     [Parameter(Mandatory)] [string] $DBUserPassword 										  # e.g. Provide a super hard password!
 )
