@@ -25,16 +25,17 @@
 	https://github.com/PScherling
 	
 .NOTES
-          FileName: C4B-OfflineInstall.ps1
+          FileName: C4B-AutoInstall.ps1
           Solution: 
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-01-29
+          Modified: 2026-01-30
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
           Version - 0.0.2 - (2026-01-29) - Changed from Nexus to ProGet compatibility
+		  Version - 0.0.2 - (2026-01-30) - Bug Fixing and Name Change
 
 
 
