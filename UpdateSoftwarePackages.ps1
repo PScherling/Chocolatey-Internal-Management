@@ -66,7 +66,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-01-24
+          Modified: 2026-01-30
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -79,6 +79,7 @@
           Version - 0.0.9 - () - Cleanup of obsolete code
 		  Version - 0.0.10 - (2026-01-23) - Adapting for ProGet and Chocolatey Envoronment
           Version - 0.0.11 - (2026-01-24) - Reconstructuring Script...
+		  Version - 0.0.11 - (2026-01-30) - Quality of Life improfement
           
 
           TODO:
@@ -117,14 +118,15 @@ Clear-Host
 $global:WarningCount 			= 0
 $global:ErrorCount 				= 0
 $filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logPath 						= Join-Path -Path "E:\UpdateScripts\Logs\UpdateSoftwarePackages" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
+$BaseDir						= "E:\ChocoManage"
+$logPath 						= Join-Path -Path "$($BaseDir)\Logs\UpdateSoftwarePackages" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
 #$GitToken 						= $GitToken
 $userInput 					    = ""
 $baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
 $baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
 $selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
-$csvPath 						= Join-Path -Path "E:\UpdateScripts" -ChildPath "SofwareList.csv"
-$downloadPath 					= "E:\UpdateScripts\temp\Downloads"     # still needed?
+$csvPath 						= Join-Path -Path "$($BaseDir)" -ChildPath "SofwareList.csv"
+$downloadPath 					= "$($BaseDir)\temp\Downloads"     # still needed?
 if (-not (Test-Path $downloadPath)) {
     Write-Log "Download Directory not found. Creating '$($downloadPath)'"
     try{
