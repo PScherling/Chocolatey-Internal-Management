@@ -79,11 +79,11 @@ param(
     [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                            # e.g. Default = "8624"
     [Parameter(Mandatory)] [string] $FeedName,                                                # e.g. "choco-internal"
     [Parameter(Mandatory)] [string] $ProGetFeedKey,                                           # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
-    [Parameter(Mandatory = $false)] [string] $DBUser,                                         # e.g. DB User Name | Default is 'ChocoUser'
-    [Parameter(Mandatory)] [string] $DBUserPassword,                                          # e.g. Provide a super hard password!
-    [Parameter(Mandatory)] [string] $LocalAdmin,                                              # e.g. Local Windows Admin | Default is 'sysadmineuro'
-    [Parameter] [switch] $UseADLoginforDB                                                     # e.g. Use this Switch Parameter if you want to enable DB Login with AD Credentials
-    
+	[Parameter(Mandatory = $false)] 
+	[ValidateSet('DB','LOCAL','DOM')] 
+	[string] $DBLoginMethod = "DB"                                             				  # e.g. Use this Parameter to set DB Login | Default is DB User
+    [Parameter(Mandatory = $false)] [string] $DBUser = "ChocoUser",                           # e.g. DB User Name | Default is 'ChocoUser'
+    [Parameter(Mandatory)] [string] $DBUserPassword 										  # e.g. Provide a super hard password!
 )
 
 $ErrorActionPreference = 'Stop'
@@ -92,6 +92,10 @@ $ErrorActionPreference = 'Stop'
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
   throw "Run PowerShell as Administrator."
+}
+
+if ($DBLoginMethod -ne 'DOM' -and [string]::IsNullOrWhiteSpace($DBUserPassword)) {
+	throw "DBUserPassword is required when DBLoginMethod is 'DB' or 'LOCAL'."
 }
 
 # ====== YOUR ENV SETTINGS ======
@@ -393,20 +397,38 @@ if($CertThumbprint){
 
         # Please choose from one of the three listed account types below. The commands will grant database permissions to a user account of your choice. 
         # This account will be used in your Connection String for the CCM Service and Web package installs ahead.
-        # Add Sql Server Login / User:
-        Write-Host "Add Sql Server Login / User"
-        Add-DatabaseUserAndRoles -DatabaseName "$($CcmDbName)" -Username "$($DBUser)" -SqlUserPassword "$($DBUserPassword)" -CreateSqlUser  -DatabaseRoles @('db_datareader', 'db_datawriter')
-
-        # Add Local Windows User:
-        #Write-Host "Add Local Windows User"
-        #Add-DatabaseUserAndRoles -DatabaseName "$($CcmDbName)" -Username "$(hostname)\$($LocalAdmin)" -DatabaseRoles @('db_datareader', 'db_datawriter')
-
-        # Add Active Directory Domain User to a default instance of SQL Server:
-        if($UseADLoginforDB){
-            Write-Host "Add Active Directory Domain User to a default instance of SQL Server"
-            $domainuser = Read-Host -Prompt "Enter User Name (domain\user)"
-            Add-DatabaseUserAndRoles -DatabaseServer 'localhost' -DatabaseName "$($CcmDbName)" -Username "$($domainuser)" -DatabaseRoles @('db_datareader', 'db_datawriter')
-        }
+        if($DBLoginMethod -eq "DB"){
+			# Add Sql Server Login / User:
+        	Write-Host "Add Sql Server Login / User"
+        	Add-DatabaseUserAndRoles -DatabaseServer 'localhost' -DatabaseName "$($CcmDbName)" -Username "$($DBUser)" -SqlUserPassword "$($DBUserPassword)" -CreateSqlUser  -DatabaseRoles @('db_datareader', 'db_datawriter')
+		}
+		elseif($DBLoginMethod -eq "LOCAL"){
+        	# Add Local Windows User:
+        	Write-Host "Add Local Windows User"
+			$UserParams = @{
+			    Name        = "$($DBUser)"
+			    Password    = ConvertTo-SecureString "$($DBUserPassword)" -AsPlainText -Force
+			    FullName    = "$($DBUser)"
+			    Description = 'Database User.'
+				AccountNeverExpires = $true
+    			PasswordNeverExpires = $true
+			}
+			$GrpParams = @{
+			    Group       = "Users"
+			    Member      = "$($DBUser)"
+			}
+			New-LocalUser @UserParams
+			Add-LocalGroupMember @GrpParams
+        	Add-DatabaseUserAndRoles -DatabaseServer 'localhost' -DatabaseName "$($CcmDbName)" -Username "$($ServerFqdn)\$($DBUser)" -DatabaseRoles @('db_datareader', 'db_datawriter')
+		}
+		elseif($DBLoginMethod -eq "DOM"){
+        	# Add Active Directory Domain User to a default instance of SQL Server:
+        	if($UseADLoginforDB){
+            	Write-Host "Add Active Directory Domain User to a default instance of SQL Server"
+            	$domainuser = Read-Host -Prompt "Enter User Name (domain\user)"
+            	Add-DatabaseUserAndRoles -DatabaseServer 'localhost' -DatabaseName "$($CcmDbName)" -Username "$($domainuser)" -DatabaseRoles @('db_datareader', 'db_datawriter')
+        	}
+		}
         
         # ====== Install CCM Service (the API / communication layer)
 		Write-Host "=================================================================="
