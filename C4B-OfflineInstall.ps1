@@ -19,6 +19,9 @@
 	https://learn.microsoft.com/de-de/troubleshoot/sql/releases/download-and-install-latest-updates
 	https://learn.microsoft.com/de-de/troubleshoot/sql/releases/download-and-install-latest-updates#sql-server-2025
 	https://learn.microsoft.com/de-de/powershell/module/microsoft.powershell.management/get-service?view=powershell-7.5
+	https://learn.microsoft.com/de-de/powershell/module/microsoft.powershell.security/convertto-securestring?view=powershell-7.5
+	https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/add-localgroupmember?view=powershell-5.1
+	https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/new-localuser?view=powershell-5.1
 	https://github.com/PScherling
 	
 .NOTES
