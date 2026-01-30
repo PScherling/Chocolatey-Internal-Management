@@ -12,15 +12,16 @@
 	https://github.com/PScherling
 	
 .NOTES
-          FileName: chocolatey-OfflineInstall.ps1
+          FileName: chocolatey-AutoInstall.ps1
           Solution: 
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-01-29
+          Modified: 2026-01-30
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
+		  Version - 0.0.1 - (2026-01-30) - Name Change
 
 
 
