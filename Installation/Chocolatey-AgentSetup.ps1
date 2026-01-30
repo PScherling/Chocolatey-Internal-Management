@@ -42,7 +42,7 @@
 #>
 
 param(
-  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert
+  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert                   # e.g. Thsi switch is for client execution only to import the self-signed server certificate
 )
 
 $ErrorActionPreference = 'Stop'
