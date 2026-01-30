@@ -98,7 +98,7 @@ And two API keys:
 ## ProGet setup (high level)
 
 1) Create an **Asset Directory** (example name: `choco-assets`)
-2) Create a **NuGet feed** for Chocolatey packages (example name: `internal-choco`)
+2) Create a **Chocolatey Packages feed** (example name: `choco-internal`)
 3) Generate API keys:
    - one for assets
    - one for feed publishing
