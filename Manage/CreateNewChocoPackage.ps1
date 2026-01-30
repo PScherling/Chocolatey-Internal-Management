@@ -152,7 +152,7 @@ param(
     [string]  $FileType,                                                                    # e.g. "msi"
     [Parameter(Mandatory = $false)] 
     [ValidateSet('http','https')] [string] $Protocol = "http",                              # e.g. Default = "http"
-    [Parameter(Mandatory)] [string] $ProGetSrv,                                             # e.g. "PSC-SWREPO1"
+    #[Parameter(Mandatory)] [string] $ProGetSrv,                                             # e.g. "PSC-SWREPO1"
     [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                          # e.g. Default = "8624"
     [Parameter(Mandatory)] [string] $AssetName,                                             # e.g. "choco-assets"
     [Parameter(Mandatory)] [string] $FeedName,                                              # e.g. "choco-internal"
@@ -162,6 +162,15 @@ param(
 
 Clear-Host
 
+# Find FDQN for current machine
+$ServerFqdn = [System.Net.Dns]::GetHostName()
+$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+
+if(-Not $ServerFqdn.endswith($domainName)) {
+    $ServerFqdn += "." + $domainName
+}
+
+$ProGetSrv = $ServerFqdn
 
 $ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
 $ToolsDir                       = "$($ChocoPackagesPath)\$($Publisher)\$($SoftwareName)\tools"
