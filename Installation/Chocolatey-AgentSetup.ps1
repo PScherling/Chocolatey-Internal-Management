@@ -25,9 +25,9 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-30
-          Modified: 2026-01-30
+          Modified: 2026-02-02
 
-          Version - 0.0.1 - (2026-01-30) - Finalized functional version 1.
+          Version - 0.0.1 - (2026-02-02) - Finalized functional version 1.
 
 .REQUIREMENTS
   Chocolatey (chocolatey package)
@@ -42,7 +42,8 @@
 #>
 
 param(
-  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert                   # e.g. Thsi switch is for client execution only to import the self-signed server certificate
+  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert,                   # e.g. Thsi switch is for client execution only to import the self-signed server certificate
+  [Parameter(Mandatory)] [string] $ServerFqdn									 # e.g. Server01.local
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,21 +53,23 @@ $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
   throw "Run PowerShell as Administrator."
 }
+$CcmServicePort = "24020"
+$CcmSvcUrl = "https://$($ServerFqdn):$($CcmServicePort)/ChocolateyManagementService"
 
 # Find FDQN for current machine
-$ServerFqdn = [System.Net.Dns]::GetHostName()
+$Fqdn = [System.Net.Dns]::GetHostName()
 $domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
 
-if(-Not $ServerFqdn.endswith($domainName)) {
-    $ServerFqdn += "." + $domainName
+if(-Not $Fqdn.endswith($domainName)) {
+    $Fqdn += "." + $domainName
 }
 
-$CcmSvcUrl = "https://$($ServerFqdn):24020/ChocolateyManagementService"
+
 
 if(choco){
   # Quick connectivity check (optional but useful)
   Write-Host "`nTesting connectivity to CCM service port..."
-  if(-not (Test-NetConnection -ComputerName $ServerFqdn -Port 24020)){
+  if(-not (Test-NetConnection -ComputerName $ServerFqdn -Port $($CcmServicePort) )){
     throw "CCM service not reachable."
   }
   else{
@@ -76,9 +79,9 @@ if(choco){
   if($UseSelfSignedCert){
     Write-Host "Importing self signed server certificate"
     $CertShare = "\\$($ServerFqdn)\certs"
-    Get-ChildItem -Path $CertShare -Filter *.cer | Where-Object { $_.BaseName -like "*selfsigned*"} | Sort-Object CreationTime -Descending | Select-Object -First 1 | Out-Null
-    Import-Certificate -FilePath $CertPath -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
-    Import-Certificate -FilePath $CertPath -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
+    $Cert = Get-ChildItem -Path "$($CertShare)" -Filter *.cer | Where-Object { $_.BaseName -like "*selfsigned*"} | Sort-Object CreationTime -Descending | Select-Object -First 1
+	Import-Certificate -FilePath "$($Cert.FullName)" -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
+    Import-Certificate -FilePath "$($Cert.FullName)" -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
   }
 
   Write-Host "
@@ -120,6 +123,11 @@ CCM Service URL: $CcmSvcUrl"
       }
 
       Set-Service -Name chocolatey-agent -StartupType Automatic
+
+	  Write-Host "Set Firewall Rule"
+	  New-NetFirewallRule -DisplayName "CCM Service $($CcmServicePort)" -Direction Inbound -Protocol TCP -LocalPort $($CcmServicePort) -Action Allow
+	
+		
       Write-Host -ForegroundColor Green "`nDone. Agent installed and configured."
     }
   }
