@@ -31,11 +31,11 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-01-30
+          Modified: 2026-02-02
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
           Version - 0.0.2 - (2026-01-29) - Changed from Nexus to ProGet compatibility
-		  Version - 0.0.2 - (2026-01-30) - Bug Fixing and Name Change
+		  Version - 0.0.2 - (2026-02-02) - Bug Fixing and Name Change
 
 
 
@@ -281,10 +281,10 @@ if($CertThumbprint){
     # Configure new internal repository
 	Write-Host "=================================================================="
     Write-Host "Configure new internal repository"
-    choco source add -n="choco-internal" -s="$ProGetFeedURI" --priority=1
+    choco source add -n="choco-internal" -s="$ProGetFeedURI" --allow-self-service --priority=10
 
-    # Remove public repository
-    Write-Host "Remove public repository"
+    # Disable public repository
+    Write-Host "Disable public repository"
     choco source disable -n="chocolatey"
 
     # ====== Install License
