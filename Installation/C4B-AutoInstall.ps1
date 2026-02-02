@@ -1,8 +1,63 @@
 <#
 .SYNOPSIS
-
+	Automated installer for a full Chocolatey for Business (C4B) + Central Management (CCM) environment
+  	using ProGet as the internal NuGet repository and SQL Server Express as the CCM database backend.
 
 .DESCRIPTION
+	 This script performs an end-to-end setup of a single-server C4B evaluation environment, including:
+    - Ensuring Chocolatey for Business licensing (chocolatey.extension)
+    - Downloading required Community + Licensed Chocolatey packages
+    - Pushing packages into an internal ProGet feed
+    - Configuring Chocolatey sources (internal feed enabled, public feed disabled)
+    - Installing SQL Server Express + SSMS (if chosen via package install)
+    - Deploying Chocolatey Central Management:
+        * chocolatey-management-database
+        * chocolatey-management-service
+        * chocolatey-management-web (IIS site)
+
+  Database authentication can be configured via -DBLoginMethod:
+    - DB    : SQL Login (creates SQL login/user and grants db_datareader/db_datawriter)
+    - LOCAL : Local Windows account (creates local user, adds to Users group, grants DB rights)
+    - DOM   : Domain account (prompts for domain\user and grants DB rights)
+
+  IMPORTANT NOTES / ASSUMPTIONS:
+    - This script expects a TLS certificate already present in Cert:\LocalMachine\My matching CN=<ServerFqdn>.
+    - ProGet must already be installed and the target NuGet feed must exist.
+    - The ProGet API key provided must be a FEED API key (not an asset key).
+    - If security software (e.g., SentinelOne) is used, ensure Chocolatey paths/processes are excluded
+      to prevent agent/service binaries from being quarantined.
+
+.PARAMETER LicensePath
+  Full path to the Chocolatey license file (chocolatey.license.xml). If a license is already installed
+  at $env:ChocolateyInstall\license\chocolatey.license.xml, that path is used automatically.
+
+.PARAMETER BusinessLicenseGuid
+  License GUID/token used to authenticate against https://licensedpackages.chocolatey.org/api/v2/
+  during download of licensed packages (trial/paid license).
+
+.PARAMETER Protocol
+  Protocol used to access ProGet (http or https). Default: http
+
+.PARAMETER ProGetPort
+  Port used by ProGet. Default: 8624
+
+.PARAMETER FeedName
+  ProGet NuGet feed name to publish packages to and consume from (e.g. "choco-internal").
+
+.PARAMETER ProGetFeedKey
+  ProGet FEED API key used for pushing packages into the internal feed.
+
+.PARAMETER DBLoginMethod
+  Determines how CCM will authenticate to the SQL database:
+    - DB    (default) : SQL login
+    - LOCAL           : local Windows account
+    - DOM             : domain account
+
+.PARAMETER DBUser
+  Username for DB/LOCAL login method. Default: ChocoUser
+
+.PARAMETER DBUserPassword
+  Password for DB/LOCAL login method. Mandatory for DB and LOCAL.
 
 
 .LINK
@@ -26,7 +81,7 @@
 	
 .NOTES
           FileName: C4B-AutoInstall.ps1
-          Solution: 
+          Solution: Chocolatey for Business Automativ Installation for ProGet Repository
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
@@ -35,13 +90,43 @@
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
           Version - 0.0.2 - (2026-01-29) - Changed from Nexus to ProGet compatibility
-		  Version - 0.0.2 - (2026-02-02) - Bug Fixing and Name Change
+		  Version - 0.0.3 - (2026-02-02) - Bug Fixing and Name Change
 
+
+.REQUIREMENTS
+  - Windows Server with GUI (Admin privileges required)
+  - Chocolatey installed (or bootstrap available)
+  - Chocolatey for Business license file
+  - ProGet installed + NuGet feed created + feed API key available
+  - TLS certificate for CCM service installed in LocalMachine\My (CN must match server FQDN)
+  - Network access to community.chocolatey.org and licensedpackages.chocolatey.org (for initial downloads)
 
 
 .EXAMPLE
+	# Run with SQL Login (recommended for eval / single-box setups):
+	.\C4B-AutoInstall.ps1 `
+	-LicensePath "D:\chocolatey.license.xml" `
+	-BusinessLicenseGuid "<GUID>" `
+	-Protocol http `
+	-ProGetPort 8624 `
+	-FeedName "choco-internal" `
+	-ProGetFeedKey "<FEED-API-KEY>" `
+	-DBLoginMethod DB `
+	-DBUser "ChocoUser" `
+	-DBUserPassword "SuperStrongPassword!"
 
-    Requires administrative privileges.
+
+	# Run with Local Windows account for SQL access:
+	.\C4B-AutoInstall.ps1 `
+	-LicensePath "D:\chocolatey.license.xml" `
+	-BusinessLicenseGuid "<GUID>" `
+	-Protocol http `
+	-ProGetPort 8624 `
+	-FeedName "choco-internal" `
+	-ProGetFeedKey "<FEED-API-KEY>" `
+	-DBLoginMethod LOCAL `
+	-DBUser "ChocoDbLocal" `
+	-DBUserPassword "SuperStrongPassword!"
 #>
 param(
     [ValidateScript({
@@ -58,23 +143,12 @@ param(
         $true
     })]
     [Parameter(Mandatory)][string]$LicensePath = $(
-        if (Test-Path $PSScriptRoot\files\chocolatey.license.xml) {
-            # Offline setup has been run, we should use that license.
-            Join-Path $PSScriptRoot "files\chocolatey.license.xml"
-        } elseif (Test-Path $env:ChocolateyInstall\license\chocolatey.license.xml) {
-            # Chocolatey is already installed, we can use that license.
+        if (Test-Path $env:ChocolateyInstall\license\chocolatey.license.xml) {
+            # Chocolatey License file is already installed
             Join-Path $env:ChocolateyInstall "license\chocolatey.license.xml"
         } else {
             # Prompt the user for the license.
-            $Wshell = New-Object -ComObject Wscript.Shell
-            $null = $Wshell.Popup('You will need to provide the license file location. Please select your Chocolatey License in the next file dialog.')
-            $null = [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms")
-            $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-            $OpenFileDialog.initialDirectory = "$env:USERPROFILE\Downloads"
-            $OpenFileDialog.filter = 'All Files (*.*)| *.*'
-            $null = $OpenFileDialog.ShowDialog()
-
-            $OpenFileDialog.filename
+            Read-Host -Prompt "Provide full path to your license file (e.g. 'D:\chocolatey.license.xml')"
         }
     ),                                                                                        # e.g. D:\License.xml
     #[Parameter(Mandatory)][string]$ServerFqdn,                                               # e.g. psc-c4bsrv.local
