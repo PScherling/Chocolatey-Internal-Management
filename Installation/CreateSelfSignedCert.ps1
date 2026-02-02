@@ -1,9 +1,46 @@
 <#
 .SYNOPSIS
-
+	Creates a self-signed TLS certificate for a Chocolatey for Business (C4B) / Chocolatey Central Management (CCM)
+  	server and exports it as PFX (with private key) and CER (public cert) for client trust distribution.
 
 .DESCRIPTION
+	This script generates a self-signed server authentication certificate for the current host FQDN and short hostname
+  and places it into Cert:\LocalMachine\My. It then exports:
+    - PFX (includes private key) for server-side binding/use
+    - CER (public certificate) for importing into client Trusted Root / Trusted People stores
 
+  The script also imports:
+    - The PFX into Cert:\LocalMachine\TrustedPeople
+    - The CER into Cert:\LocalMachine\Root
+
+  NOTE:
+    - Self-signed certificates are recommended only for lab/testing environments.
+      For production, use a certificate issued by a trusted internal PKI or public CA.
+    - The resulting CER can be distributed via GPO, MDM, or a file share (e.g. \\server\certs)
+      for client machines to trust the CCM service endpoint.
+
+
+.PARAMETER Friendly
+  Friendly name stored on the certificate. Default: "C4B Self-Signed TLS"
+
+.PARAMETER Years
+  Validity period (in years). Default: 1
+
+.PARAMETER OutDir
+  Output directory for exported files (PFX/CER). Default: D:\certs
+
+
+.OUTPUTS
+  - Writes certificate details (Subject, Thumbprint, NotAfter, FriendlyName) to the console
+  - Creates:
+      * <OutDir>\c4b-selfsigned.pfx
+      * <OutDir>\c4b-selfsigned.cer
+
+
+.REQUIREMENTS
+  - Run as Administrator
+  - PowerShell 5.1+ (New-SelfSignedCertificate available)
+  
 
 .LINK
     
@@ -23,8 +60,12 @@
 
 
 .EXAMPLE
+	# Create a 1-year self-signed cert and export to D:\certs
+	.\CreateSelfSignedCert.ps1
 
-    Requires administrative privileges.
+	# Create a 3-year cert with a custom friendly name and output location
+	.\CreateSelfSignedCert.ps1 -Friendly "CCM TLS (Lab)" -Years 3 -OutDir "E:\certs"
+	
 #>
 param(
     [Parameter(Mandatory = $false)] [string] $Friendly = "C4B Self-Signed TLS",            # e.g. C4B Self-Signed TLS
