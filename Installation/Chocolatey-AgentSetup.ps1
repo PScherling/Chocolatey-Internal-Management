@@ -1,15 +1,52 @@
 <#
 .SYNOPSIS
-  To install the Chocolatey Agent service, you need to install the chocolatey-agent package. 
-  The Chocolatey Agent is only available for business edition customers to install from the licensed source 
-  (customers trialling the business edition will be provided instructions on how to install).
+  Installs and configures the Chocolatey Agent (chocolatey-agent) for Chocolatey for Business (C4B),
+  enabling Chocolatey Central Management (CCM) check-ins and deployments for this client machine.
 
 .DESCRIPTION
-  The Chocolatey Agent Service requires Log On As Service and Log On As Batch rights. 
-  We attempt to set these rights on the user at the time of installation via Local Policy, 
-  but if you have a restrictive Group Policy that will be applied to the system, 
-  please ensure that the user account you are attempting to use (or ChocolateyLocalAdmin as the default) 
-  has the correct permissions applied in your Group Policy.
+  This script performs a client-side setup for Chocolatey Agent in a C4B + CCM environment:
+    - (Optional) Imports a self-signed CCM server certificate from a UNC share (\\<ServerFqdn>\certs)
+    - Validates connectivity to the CCM service endpoint/port
+    - Verifies chocolatey.extension is installed (required for C4B features)
+    - Installs/Upgrades chocolatey-agent
+    - Enables and configures the Chocolatey Background Service + allowed commands
+    - Configures CentralManagementServiceUrl to the provided CCM server
+    - Enables CCM features:
+        * useChocolateyCentralManagement
+        * useChocolateyCentralManagementDeployments
+    - Ensures the chocolatey-agent Windows service is set to Automatic and running
+
+	SECURITY / POLICY NOTES
+    - The Chocolatey Agent service requires "Log on as a service" and "Log on as a batch job".
+      The installer attempts to grant these rights via local policy, but restrictive Group Policy
+      may override them. Ensure the service account (default: ChocolateyLocalAdmin) retains these rights.
+    - If endpoint protection (AV/EDR) is in use, ensure Chocolatey folders/processes are excluded
+      to prevent service binaries from being quarantined or removed.
+
+  CERTIFICATE NOTES
+    - If -UseSelfSignedCert is specified, this script imports the newest matching *.cer file found
+      on \\<ServerFqdn>\certs (filtered by "*selfsigned*") into:
+        - Cert:\LocalMachine\Root
+        - Cert:\LocalMachine\TrustedPeople
+    - For production, use a trusted certificate chain instead of distributing self-signed certificates.
+
+
+.PARAMETER ServerFqdn
+  Fully-qualified domain name (FQDN) of the CCM server hosting Chocolatey Management Service.
+  Example: c4bserver.local
+
+.PARAMETER UseSelfSignedCert
+  Optional switch to import the CCM server’s self-signed certificate from \\<ServerFqdn>\certs.
+  Intended for lab/test environments where a public/trusted CA certificate is not available.
+
+
+.REQUIREMENTS
+  - Run as Administrator
+  - Chocolatey CLI installed (chocolatey)
+  - Chocolatey for Business licensing in place (chocolatey.extension installed)
+  - Access to internal licensed feed hosting chocolatey-agent
+  - Network connectivity to CCM server on port 24020 (default in this script)
+  - Optional: \\<ServerFqdn>\certs share containing the self-signed *.cer (if using -UseSelfSignedCert)
 
 
 .LINK
@@ -20,7 +57,7 @@
 	
 .NOTES
           FileName: Chocolatey-AgentSetup.ps1
-          Solution: 
+          Solution: Chocolatey Agent Installation from internal Repository
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
@@ -37,8 +74,9 @@
 
 
 .EXAMPLE
+	# Lab setup importing a self-signed certificate from \\psc-c4bsrv.local\certs:
+	.\Chocolatey-AgentSetup.ps1 -ServerFqdn "psc-c4bsrv.local" -UseSelfSignedCert
 
-    Requires administrative privileges.
 #>
 
 param(
