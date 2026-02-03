@@ -118,22 +118,43 @@ Clear-Host
 $global:WarningCount 			= 0
 $global:ErrorCount 				= 0
 $filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$logPath 						= Join-Path -Path "E:\UpdateScripts\Logs\UpdateSoftwarePackages" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
+$BaseDir						= "E:\ChocoManage"
+$logDir							= "$($BaseDir)\Logs\UpdateSoftwarePackages"
+$logPath 						= Join-Path -Path "$($logDir)" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
 #$GitToken 						= $GitToken
 $userInput 					    = ""
 $baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
 $baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
 $selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
-$csvPath 						= Join-Path -Path "E:\UpdateScripts" -ChildPath "SofwareList.csv"
-$downloadPath 					= "E:\UpdateScripts\temp\Downloads"     # still needed?
+$csvPath 						= Join-Path -Path "$($BaseDir)" -ChildPath "SofwareList.csv"
+$downloadPath 					= "$($BaseDir)\temp\Downloads"     # still needed?
+
+if (-not (Test-Path $logDir)) {
+    Write-Host "Log Directory not found. Creating '$($logDir)'"
+    try{
+        New-Item -ItemType Directory -Path $logDir | Out-Null
+    } catch{
+        #Write-Error "Download directory could not be created. $_"
+        throw "ERROR: Log directory could not be created. $_"
+    }
+}
+
+if (-not (Test-Path $logPath)) {
+    #Write-Host "Creating '$($logPath)'"
+    try{
+        New-Item -ItemType File -Path $logPath | Out-Null
+    } catch{
+        #Write-Error "Download directory could not be created. $_"
+        throw "ERROR: Log file could not be created. $_"
+    }
+}
+
 if (-not (Test-Path $downloadPath)) {
-    Write-Log "Download Directory not found. Creating '$($downloadPath)'"
+    Write-Host "Download Directory not found. Creating '$($downloadPath)'"
     try{
         New-Item -ItemType Directory -Path $downloadPath | Out-Null
     } catch{
-        #Write-Error "Download directory could not be created. $_"
-        Write-TrackedError "Download directory could not be created. $_"
-        Write-Log "ERROR: Download directory could not be created. $_"
+        throw "ERROR: Download directory could not be created. $_"
     }
 }
 
@@ -201,6 +222,8 @@ function Get-SoftwarePaths {
     )
 
     $firstLetter = $Publisher.Substring(0,1).ToLower()
+	$publisherForLocal = Convert-NameForProGetPath $Publisher
+	$softwareForLocal = Convert-NameForProGetPath $SoftwareName
     $publisherForAssets = Convert-NameForProGetPath $Publisher
     $softwareForAssets  = Convert-NameForProGetPath $SoftwareName
 
@@ -212,7 +235,8 @@ function Get-SoftwarePaths {
             FirstLetter        = $firstLetter
             ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
             RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
-            LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)"
+            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)"
+			LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)"
             ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)" 
         }
     } 
@@ -224,8 +248,9 @@ function Get-SoftwarePaths {
             FirstLetter        = $firstLetter
             ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
             RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
-            LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
-            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)/$($subFolder1)" 
+            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
+			LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($subFolder1)"
+            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($subFolder1)" 
         }
     }
     elseif(-not [string]::IsNullOrEmpty($SubName1) -and -not [string]::IsNullOrEmpty($SubName2)){
@@ -236,8 +261,9 @@ function Get-SoftwarePaths {
             FirstLetter        = $firstLetter
             ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
             RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
-            LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
-            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)/$($subFolder1)/$($subFolder2)" 
+            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
+            LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($subFolder1)$($subFolder2)"
+			ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($subFolder1)$($subFolder2)" 
         }
     }
 
@@ -802,16 +828,6 @@ if (-not (Get-Module -Name "powershell-yaml")) {
 }
 
 
-Write-Host -ForegroundColor Red "
-       .-://///:-.
-     -://:-...-//   .       
-    -///-         ///       EEEEEEE UU   UU RRRRRR   OOOOO  FFFFFFF UU   UU NN   NN KK  KK
-    ///:         :///       EE      UU   UU RR   RR OO   OO FF      UU   UU NNN  NN KK KK
-    ///:         :///       EEEEE   UU   UU RRRRRR  OO   OO FFFF    UU   UU NN N NN KKKK
-    -///-       -///-       EE      UU   UU RR  RR  OO   OO FF      UU   UU NN  NNN KK KK
-     -://:-...-://:-        EEEEEEE  UUUUU  RR   RR  OOOO0  FF       UUUUU  NN   NN KK  KK
-       *-://///:-*
-"
 Write-Host -ForegroundColor Cyan "
     +----+ +----+     
     |####| |####|     
@@ -1243,10 +1259,10 @@ foreach ($software in $SoftwareList) {
             }
 
             if($subName1 -ne "-"){
-                $Softwarename = "$($Softwarename)_$($subName1)"
+                $Softwarename = "$($Softwarename)$($subName1)"
             }
             if($subName2 -ne "-"){
-                $Softwarename = "$($Softwarename)_$($subName2)"
+                $Softwarename = "$($Softwarename)$($subName2)"
             }
 
 
