@@ -78,8 +78,8 @@
           Version - 0.0.8 - () - Update parse yaml logic for "nestedInstallers"
           Version - 0.0.9 - () - Cleanup of obsolete code
 		  Version - 0.0.10 - (2026-01-23) - Adapting for ProGet and Chocolatey Envoronment
-          Version - 0.0.11 - (2026-01-24) - Reconstructuring Script...
-		  Version - 0.0.11 - (2026-01-30) - Quality of Life improfement
+          Version - 0.0.11 - (2026-01-26) - Reconstructuring Script...
+		  Version - 0.0.12 - (2026-02-03) - Quality of Life improfement
           
 
           TODO:
@@ -118,15 +118,14 @@ Clear-Host
 $global:WarningCount 			= 0
 $global:ErrorCount 				= 0
 $filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$BaseDir						= "E:\ChocoManage"
-$logPath 						= Join-Path -Path "$($BaseDir)\Logs\UpdateSoftwarePackages" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
+$logPath 						= Join-Path -Path "E:\UpdateScripts\Logs\UpdateSoftwarePackages" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
 #$GitToken 						= $GitToken
 $userInput 					    = ""
 $baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
 $baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
 $selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
-$csvPath 						= Join-Path -Path "$($BaseDir)" -ChildPath "SofwareList.csv"
-$downloadPath 					= "$($BaseDir)\temp\Downloads"     # still needed?
+$csvPath 						= Join-Path -Path "E:\UpdateScripts" -ChildPath "SofwareList.csv"
+$downloadPath 					= "E:\UpdateScripts\temp\Downloads"     # still needed?
 if (-not (Test-Path $downloadPath)) {
     Write-Log "Download Directory not found. Creating '$($downloadPath)'"
     try{
@@ -803,7 +802,16 @@ if (-not (Get-Module -Name "powershell-yaml")) {
 }
 
 
-
+Write-Host -ForegroundColor Red "
+       .-://///:-.
+     -://:-...-//   .       
+    -///-         ///       EEEEEEE UU   UU RRRRRR   OOOOO  FFFFFFF UU   UU NN   NN KK  KK
+    ///:         :///       EE      UU   UU RR   RR OO   OO FF      UU   UU NNN  NN KK KK
+    ///:         :///       EEEEE   UU   UU RRRRRR  OO   OO FFFF    UU   UU NN N NN KKKK
+    -///-       -///-       EE      UU   UU RR  RR  OO   OO FF      UU   UU NN  NNN KK KK
+     -://:-...-://:-        EEEEEEE  UUUUU  RR   RR  OOOO0  FF       UUUUU  NN   NN KK  KK
+       *-://///:-*
+"
 Write-Host -ForegroundColor Cyan "
     +----+ +----+     
     |####| |####|     
@@ -847,10 +855,11 @@ do {
 $selectedUpdateOption = $UpdateOption
 Write-Log "Update Option selected: $($selectedUpdateOption)"
 if($selectedUpdateOption -eq "ALL"){
-    Write-Log "Updateing ALL."
+    Write-Log "Updating ALL."
 
-    Write-Host "
- For LOCAL update option! Please ensure you have downloaded the regarding installer files to '$($downloadPath)'."
+    Write-Host -ForegroundColor Yellow "
+ For LOCAL update option! Please ensure you have downloaded the regarding installer files to '$($downloadPath)'.
+ "
     Write-Log "Wait for user to continue."
     do{
         $userInput = Read-Host " Do you want to continue (Y/N)"
@@ -902,7 +911,7 @@ if($selectedUpdateOption -eq "ALL"){
     
 }
 elseif($selectedUpdateOption -eq "API"){
-    Write-Log "Updateing API only."
+    Write-Log "Updating API only."
     Write-Host "-----------------------------------------------------------------------------------"
     Write-Host "              Update API only Software"
     Write-Host "-----------------------------------------------------------------------------------"
