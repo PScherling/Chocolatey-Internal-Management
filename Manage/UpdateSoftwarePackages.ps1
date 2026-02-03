@@ -79,7 +79,7 @@
           Version - 0.0.9 - () - Cleanup of obsolete code
 		  Version - 0.0.10 - (2026-01-23) - Adapting for ProGet and Chocolatey Envoronment
           Version - 0.0.11 - (2026-01-26) - Reconstructuring Script...
-		  Version - 0.0.12 - (2026-02-03) - Quality of Life improfement
+		  Version - 0.0.12 - (2026-02-03) - Quality of Life improvement
           
 
           TODO:
