@@ -36,7 +36,7 @@
 	
 .NOTES
           FileName: chocolatey-AutoInstall.ps1
-          Solution: 
+          Solution: Automate Chocolatey Installation
           Author: Patrick Scherling
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
