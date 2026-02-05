@@ -117,12 +117,12 @@ $cert | Format-List Subject, Thumbprint, NotAfter, FriendlyName
 $pwd = Read-Host "Enter a PFX password" -AsSecureString
 
 # Export with private key (PFX)
-Export-PfxCertificate -Cert $cert -FilePath "$($OutDir)\c4b-selfsigned.pfx" -Password $pwd | Out-Null
+Export-PfxCertificate -Cert $cert -FilePath "$($OutDir)\$($ServerFqdn)-selfsigned.pfx" -Password $pwd | Out-Null
 
 # Export public cert only (CER) - for endpoints to trust
-Export-Certificate -Cert $cert -FilePath "$($OutDir)\c4b-selfsigned.cer" | Out-Null
+Export-Certificate -Cert $cert -FilePath "$($OutDir)\$($ServerFqdn)-selfsigned.cer" | Out-Null
 
 
-Import-PfxCertificate -FilePath "$($OutDir)\c4b-selfsigned.pfx" -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" -Password $pwd | Out-Null
+Import-PfxCertificate -FilePath "$($OutDir)\$($ServerFqdn)-selfsigned.pfx" -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" -Password $pwd | Out-Null
 
-Import-Certificate -FilePath "$($OutDir)\c4b-selfsigned.cer" -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
+Import-Certificate -FilePath "$($OutDir)\$($ServerFqdn)-selfsigned.cer" -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
