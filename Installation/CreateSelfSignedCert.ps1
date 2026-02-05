@@ -100,7 +100,7 @@ $params = @{
   Subject               = "CN=$($ServerFqdn)"
   DnsName               = @($ServerFqdn, $ServerName)
   KeyAlgorithm          = 'RSA'
-  KeyLength             = 2048
+  KeyLength             = 4096
   HashAlgorithm         = 'SHA256'
   KeyUsage              = @('DigitalSignature', 'KeyEncipherment')
   TextExtension         = @("2.5.29.37={text}1.3.6.1.5.5.7.3.1")      # EKU = Server Authentication
