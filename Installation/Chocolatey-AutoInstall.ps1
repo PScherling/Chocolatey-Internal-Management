@@ -1,9 +1,32 @@
 <#
 .SYNOPSIS
-
+	Installs the Chocolatey CLI (choco) in an offline-friendly way by downloading the Chocolatey .nupkg,
+  	extracting it, and running the embedded installer script.
 
 .DESCRIPTION
+	This script automates installation of Chocolatey without using the standard online bootstrapper.
+  	It downloads the Chocolatey package (chocolatey.nupkg) either from:
+    - the public Chocolatey Community Repository (default), or
+    - a user-provided internal URL (e.g., ProGet/Nexus/any HTTP file endpoint)
 
+  	After download, the script:
+    1) Extracts the .nupkg as a ZIP to a temporary working directory
+    2) Runs tools\chocolateyInstall.ps1 from the package
+    3) Ensures the current PowerShell session can access choco.exe via PATH
+    4) Prints the installed Chocolatey version
+
+  	Intended for lab / enterprise scenarios where you want reproducible installs and/or restricted internet access.
+
+
+.PARAMETER DownloadPath
+  Local directory to store the downloaded chocolatey.nupkg (e.g. D:\SetupFiles).
+  The file will be saved as: <DownloadPath>\chocolatey.nupkg
+
+.PARAMETER UseInternalUrl
+  If specified, the script will prompt for a direct internal URL to a Chocolatey .nupkg file
+  (e.g. a ProGet asset endpoint). If not specified, the script downloads from the public
+  Community Repository.
+  
 
 .LINK
     https://community.chocolatey.org/packages/chocolatey
@@ -24,10 +47,18 @@
 		  Version - 0.0.1 - (2026-01-30) - Name Change
 
 
+.REQUIREMENTS
+  - Run as Administrator
+  - PowerShell 5.1+
+  - BITS (Start-BitsTransfer) recommended; falls back to Invoke-WebRequest if unavailable/failing
+
 
 .EXAMPLE
+  # Install Chocolatey by downloading from community feed to D:\SetupFiles
+  .\chocolatey-AutoInstall.ps1 -DownloadPath "D:\SetupFiles"
 
-    Requires administrative privileges.
+    # Install Chocolatey using an internal URL (prompted)
+  .\chocolatey-AutoInstall.ps1 -DownloadPath "D:\SetupFiles" -UseInternalUrl
 #>
 
 param( 
