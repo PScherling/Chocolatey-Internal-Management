@@ -94,9 +94,10 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-20
-          Modified: 2026-01-23
+          Modified: 2026-02-06
 
 		  Version - 0.0.1 - (2026-01-23) - Finalized functional version 1.
+		  Version - 0.0.2 - (2026-02-06) - Bug Fixing.
           
 
           TODO:
@@ -134,7 +135,6 @@
         -SoftwareName "MyApp" `
         -Version "1.2.3" `
         -FileType "msi" `
-        -ProGetSrv "PSC-SWREPO1" `
         -AssetName "choco-assets" `
         -FeedName "internal-choco" `
         -ProGetFeedKey "xxxxxxxxxxxxxxxxxxxx"
@@ -153,7 +153,7 @@ param(
     [string]  $FileType,                                                                    # e.g. "msi"
     [Parameter(Mandatory = $false)] 
     [ValidateSet('http','https')] [string] $Protocol = "http",                              # e.g. Default = "http"
-    #[Parameter(Mandatory)] [string] $ProGetSrv,                                             # e.g. "PSC-SWREPO1"
+    [Parameter(Mandatory = $false)] [string] $ServerFqdn,                                   # e.g. "PSC-SWREPO1"
     [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                          # e.g. Default = "8624"
     [Parameter(Mandatory)] [string] $AssetName,                                             # e.g. "choco-assets"
     [Parameter(Mandatory)] [string] $FeedName,                                              # e.g. "choco-internal"
@@ -164,13 +164,14 @@ param(
 Clear-Host
 
 # Find FDQN for current machine
-$ServerFqdn = [System.Net.Dns]::GetHostName()
-$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+if(-not $ServerFqdn){
+	$ServerFqdn = [System.Net.Dns]::GetHostName()
+	$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
 
-if(-Not $ServerFqdn.endswith($domainName)) {
-    $ServerFqdn += "." + $domainName
+	if(-Not $ServerFqdn.endswith($domainName)) {
+    	$ServerFqdn += "." + $domainName
+	}
 }
-
 $ProGetSrv = $ServerFqdn
 
 $ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
