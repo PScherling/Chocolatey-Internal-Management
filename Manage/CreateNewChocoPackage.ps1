@@ -104,6 +104,7 @@
 .Requirements
     - PowerShell 5.1 or higher (PowerShell 7+ recommended)
 	- Chocolatey CLI tool must be installed
+	- ProGet Asset Structure must be created before (IMPORTANT!)
 		
 .EXAMPLE
     # Create a new package for WinSCP (x86 EXE), update chocolateyinstall.ps1, build and push to ProGet feed
