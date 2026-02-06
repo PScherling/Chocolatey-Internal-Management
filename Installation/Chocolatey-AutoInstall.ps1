@@ -62,7 +62,7 @@
 #>
 
 param( 
-  [Parameter(Mandatory)] [string] $DownloadPath                                  # e.g. D:\SetupFiles
+  [Parameter(Mandatory)] [string] $DownloadPath,                                 # e.g. D:\SetupFiles
   [Parameter(Mandatory = $false)] [switch] $UseInternalUrl						 # e.g. If you enable this switch, you must provide the URL to your internal repo like "http://psc-swrepo1:8624/endpoints/choco-assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
 )
 
