@@ -41,10 +41,11 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-01-30
+          Modified: 2026-02-10
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
-		  Version - 0.0.1 - (2026-01-30) - Name Change
+		  Version - 0.0.2 - (2026-01-30) - Name Change
+		  Version - 0.0.3 - (2026-02-10) - Change Parameter "DownloadPath" to "NotMandatory" and set default value
 
 
 .REQUIREMENTS
@@ -62,8 +63,8 @@
 #>
 
 param( 
-  [Parameter(Mandatory)] [string] $DownloadPath,                                 # e.g. D:\SetupFiles
-  [Parameter(Mandatory = $false)] [switch] $UseInternalUrl						 # e.g. If you enable this switch, you must provide the URL to your internal repo like "http://psc-swrepo1:8624/endpoints/choco-assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
+  [Parameter(Mandatory = $false)] [string] $DownloadPath = "C:\_it\SetupFiles",                                 # e.g. D:\SetupFiles
+  [Parameter(Mandatory = $false)] [switch] $UseInternalUrl						 								# e.g. If you enable this switch, you must provide the URL to your internal repo like "http://psc-swrepo1:8624/endpoints/choco-assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
 )
 
 $ErrorActionPreference        = 'Stop'
