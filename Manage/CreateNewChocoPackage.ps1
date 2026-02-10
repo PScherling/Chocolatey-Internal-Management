@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     CreateNewChocoPackage.ps1 automates the initial creation of internal Chocolatey packages in an on-prem environment.
-    It is designed for a ProGet and Chocolatey workflow where installer binaries (MSI/EXE/MSU/APPX,MSIX,APPXBUNDLE,MSIXBUNDLE) are hosted in a ProGet
+    It is designed for a ProGet and Chocolatey workflow where installer binaries (MSI/EXE/MSU/APPX,MSIX,APPXBUNDLE,MSIXBUNDLE,NUGET) are hosted in a ProGet
     Asset Directory and Chocolatey packages reference those internal URLs.
 
     The script performs the following steps:
