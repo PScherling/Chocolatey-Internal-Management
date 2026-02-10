@@ -75,6 +75,10 @@ if($UseInternalUrl){
 }
 $NupkgPath                    = "$($DownloadPath)\chocolatey.nupkg"
 
+if (-not (Test-Path $DownloadPath)) {
+    New-Item -ItemType Directory -Path $DownloadPath | Out-Null
+}
+
 # Downloading File
 function Start-DownloadInstallerFile {
     param (
