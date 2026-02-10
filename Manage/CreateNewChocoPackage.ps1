@@ -149,7 +149,7 @@ param(
     [Parameter(Mandatory = $false)] [ValidateSet('x64','x86')] [string] $Arch = "x86",      # e.g. "x64" | Default = "x86"
     [Parameter(Mandatory)] [string] $Version,                                               # e.g. "8.8.9"
     [Parameter(Mandatory)] 
-    [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle')] 
+    [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle','nupkg')] 
     [string]  $FileType,                                                                    # e.g. "msi"
     [Parameter(Mandatory = $false)] 
     [ValidateSet('http','https')] [string] $Protocol = "http",                              # e.g. Default = "http"
