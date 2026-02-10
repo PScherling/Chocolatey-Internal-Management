@@ -98,6 +98,7 @@
 
 		  Version - 0.0.1 - (2026-01-23) - Finalized functional version 1.
 		  Version - 0.0.2 - (2026-02-06) - Bug Fixing.
+		  Version - 0.0.3 - (2026-02-10) - Adding NUPFK Support for "FileType"
           
 
           TODO:
