@@ -66,8 +66,8 @@
           Modified: 2026-02-11
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
-		      Version - 0.0.2 - (2026-01-30) - Name Change
-		      Version - 0.0.3 - (2026-02-10) - Change Parameter "DownloadPath" to "NotMandatory" and set default value
+		  Version - 0.0.2 - (2026-01-30) - Name Change
+		  Version - 0.0.3 - (2026-02-10) - Change Parameter "DownloadPath" to "NotMandatory" and set default value
           Version - 0.0.4 - (2026-02-11) - Add new parameter(s) for unattended installation
 
 
