@@ -129,6 +129,7 @@ These values are supported by the toolkit for **naming, storage, and metadata**:
 - `msix`
 - `appxbundle`
 - `msixbundle`
+- `nupkg`
 
 > Note: **Chocolatey helper functions** are primarily designed around `exe/msi/msu`.  
 > APPX/MSIX often require custom install logic (`Add-AppxPackage`, provisioning, certificates, etc.).  
