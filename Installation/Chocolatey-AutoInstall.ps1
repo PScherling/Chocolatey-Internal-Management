@@ -99,7 +99,7 @@
 
 param( 
   [Parameter(Mandatory = $false)] [string] $DownloadPath = "C:\_it\SetupFiles",                                 # e.g. D:\SetupFiles
-  [Parameter(Mandatory = $false)] [string] $InternalUrl,					 								                              # e.g. your internal repo like "https://psc-swrepo1:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
+  [Parameter(Mandatory = $false)] [string] $InternalUrl,					 								    # e.g. your internal repo like "https://psc-swrepo1:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
   [Parameter(Mandatory = $false)] [string] $InternalSource,                                                     # e.g. your internal nuget source url like "https://psc-swrepo1.local:8625/nuget/choco-feed/"
   [Parameter(Mandatory = $false)] [string] $IntSourceName,                                                      # e.g. Name for the internal nuget feed like "choco-feed"
   [Parameter(Mandatory = $false)] [int] $Prio = 1,                                                              # e.g. Priority for the new source
