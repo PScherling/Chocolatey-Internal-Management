@@ -132,7 +132,7 @@ function Start-DownloadInstallerFile {
     )
 
     try {
-        Start-BitsTransfer -Source $Url -Destination $DestinationPath -ErrorAction Stop
+        Start-BitsTransfer -Source $Url -Destination $DestinationPath -ErrorAction SilentlyContinue
         Write-Host "Downloaded successfully using BITS: $DestinationPath"
     } catch {
         #Write-Warning "BITS download failed. Trying fallback method."
