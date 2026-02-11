@@ -3,7 +3,7 @@
 ![Audience](https://img.shields.io/badge/Audience-Enterprise-informational)
 ![Maintenance](https://img.shields.io/badge/Maintained-Yes-success)
 
-# Chocolatey-Internal-Management
+# Chocolatey-Internal-Management | Pre-Release
 
 A PowerShell toolkit to **create and maintain internal/offline Chocolatey packages** backed by **ProGet**.
 I Started this project in case the "Chocolatey for Busniess" solution is not applicable for you and you can only use the "FOSS" variant of Chocolatey.
