@@ -99,6 +99,7 @@
 
 param( 
   [Parameter(Mandatory = $false)] [string] $DownloadPath = "C:\_it\SetupFiles",                                 # e.g. D:\SetupFiles
+  [Parameter(Mandatory = $false)] [switch] $UseLocalInstallation,                                               # e.g. Use this switch if you don't want to "download" the nupkg file from an intenral server and use a local file isntead
   [Parameter(Mandatory = $false)] [string] $InternalUrl,					 								    # e.g. your internal repo like "https://psc-swrepo1:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
   [Parameter(Mandatory = $false)] [string] $InternalSource,                                                     # e.g. your internal nuget source url like "https://psc-swrepo1.local:8625/nuget/choco-feed/"
   [Parameter(Mandatory = $false)] [string] $IntSourceName,                                                      # e.g. Name for the internal nuget feed like "choco-feed"
@@ -107,21 +108,21 @@ param(
   [Parameter(Mandatory = $false)] [string] $ServerFqdn                                                          # e.g. Internal Repo Server Fqdn like "PSC-SWREPO1.local"                                 
 )
 
+$ErrorActionPreference = 'Stop'
+
 # Enforce: ServerFqdn is required if UseSelfSignedCert is set
 if ($UseSelfSignedCert -and [string]::IsNullOrWhiteSpace($ServerFqdn)) {
   throw "Parameter -ServerFqdn is required when using -UseSelfSignedCert."
 }
 
-$ErrorActionPreference        = 'Stop'
-if($InternalUrl){
-	$ChocoUrl = $InternalUrl
-}else{
-	$ChocoUrl = "https://community.chocolatey.org/api/v2/package/chocolatey"
+# Ensure one method only
+if ($UseLocalInstallation -and $InternalUrl) {
+    throw "Cannot use -UseLocalInstallation and -InternalUrl together."
 }
-$NupkgPath = "$($DownloadPath)\chocolatey.nupkg"
 
-if (-not (Test-Path $DownloadPath)) {
-    New-Item -ItemType Directory -Path $DownloadPath | Out-Null
+# Ensure Internal parameters
+if ($InternalSource -xor $IntSourceName) {
+    throw "Both -InternalSource and -IntSourceName must be provided together."
 }
 
 # Downloading File
@@ -132,7 +133,7 @@ function Start-DownloadInstallerFile {
     )
 
     try {
-        Start-BitsTransfer -Source $Url -Destination $DestinationPath -ErrorAction SilentlyContinue
+        Start-BitsTransfer -Source $Url -Destination $DestinationPath -ErrorAction Stop
         Write-Host "Downloaded successfully using BITS: $DestinationPath"
     } catch {
         #Write-Warning "BITS download failed. Trying fallback method."
@@ -175,17 +176,42 @@ if($UseSelfSignedCert){
   }
 }
 
-Write-Host "=================================================================="
-# Start Download
-Write-Host "Start Download"
-try{
-  Start-DownloadInstallerFile -Url "$ChocoUrl" -DestinationPath "$NupkgPath"
-} catch{
-  throw "Download could not be started - $_"
+if ($UseLocalInstallation){
+	#$NupkgPath = ".\chocolatey*.nupkg"
+	$NupkgPath = Get-ChildItem -Path "." -Filter "chocolatey*.nupkg" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+	
+	if (-not $NupkgPath) {
+    	throw "No chocolatey '.nupkg' found in current directory."
+	}
 }
+else{
+	if($InternalUrl -and -not $UseLocalInstallation){
+		$ChocoUrl = $InternalUrl
+	}
+	elseif(-not $InternalUrl -and -not $UseLocalInstallation){
+		$ChocoUrl = "https://community.chocolatey.org/api/v2/package/chocolatey"
+	}
 
-if (-not (Test-Path $NupkgPath)) {
-  throw "File not found: $NupkgPath"
+	if (-not (Test-Path $DownloadPath)) {
+	    New-Item -ItemType Directory -Path $DownloadPath | Out-Null
+	}
+
+	#$NupkgPath = "$($DownloadPath)\chocolatey.nupkg"
+	#$NupkgPath = Get-ChildItem -Path "$($DownloadPath)" -Filter "chocolatey*.nupkg" | Select-Object -First 1 -ExpandProperty FullName
+	$NupkgPath = Join-Path $DownloadPath "chocolatey.nupkg"
+	
+	Write-Host "=================================================================="
+	# Start Download
+	Write-Host "Start Download"
+	try{
+  		Start-DownloadInstallerFile -Url "$ChocoUrl" -DestinationPath "$NupkgPath"
+	} catch{
+  		throw "Download could not be started: $_"
+	}
+
+	if (-not (Test-Path $NupkgPath)) {
+  		throw "File not found: $NupkgPath"
+	}
 }
 
 Write-Host "=================================================================="
