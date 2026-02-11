@@ -232,4 +232,5 @@ if ($InternalSource -and $IntSourceName) {
 else {
   Write-Host "No internal source parameters provided - leaving Chocolatey community source as-is."
 }
+Write-Host "=================================================================="
 
