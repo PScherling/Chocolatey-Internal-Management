@@ -10,7 +10,7 @@ I Started this project in case the "Chocolatey for Busniess" solution is not app
 
 This repository focuses on a practical enterprise workflow:
 
-- **Installer binaries** (EXE/MSI/MSU/APPX/MSIX/APPXBUNDLE/MSIXBUNDLE) are stored in a **ProGet Asset Directory**
+- **Installer binaries** (EXE/MSI/MSU/APPX/MSIX/APPXBUNDLE/MSIXBUNDLE/NUPKG) are stored in a **ProGet Asset Directory**
 - **Chocolatey packages** reference internal ProGet URLs and validate with **SHA256**
 - Packages are **packed and pushed** to a **ProGet NuGet (Chocolatey) feed**
 - Clients install from your internal feed (no public internet dependency)
