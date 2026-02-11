@@ -164,10 +164,15 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administra
 if($UseSelfSignedCert){
   Write-Host "=================================================================="
   Write-Host "Importing self signed server certificate"
-  $CertShare = "\\$($ServerFqdn)\certs"
-  $Cert = Get-ChildItem -Path "$($CertShare)" -Filter *.cer | Where-Object { $_.BaseName -like "*selfsigned*"} | Sort-Object CreationTime -Descending | Select-Object -First 1
-  Import-Certificate -FilePath "$($Cert.FullName)" -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
-  Import-Certificate -FilePath "$($Cert.FullName)" -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
+  try{
+  	$CertShare = "\\$($ServerFqdn)\certs"
+  	$Cert = Get-ChildItem -Path "$($CertShare)" -Filter *.cer | Where-Object { $_.BaseName -like "*selfsigned*"} | Sort-Object CreationTime -Descending | Select-Object -First 1
+  	Import-Certificate -FilePath "$($Cert.FullName)" -CertStoreLocation "Cert:\LocalMachine\Root" | Out-Null
+  	Import-Certificate -FilePath "$($Cert.FullName)" -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
+  }
+  catch{
+    throw "Importing self signed server certificate failed: $_"
+  }
 }
 
 Write-Host "=================================================================="
