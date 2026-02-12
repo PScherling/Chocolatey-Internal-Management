@@ -133,7 +133,7 @@ Write-Log "Installing Application '$($AppName)'."
 try{
     if (Test-Path $choco) {
         #start-process -WindowStyle minimized -FilePath "$($choco)" -ArgumentList "install $($AppName) -y" -Wait
-        & $choco install $($AppName) -y | Tee-Object -FilePath $($localLogFile) -Append
+        & $choco install $($AppName) -y --no-progress | Tee-Object -FilePath $($localLogFile) -Append
     }
     else {
         throw "$($AppName) not found."
