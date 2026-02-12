@@ -62,7 +62,7 @@
   .\Install_ChocoApplication.ps1 -AppName "7zip" -UploadLog -SrvIP "192.168.1.10"
 #>
 param( 
-  [Parameter(Mandatory = $true)] [string] $AppName,                                 # e.g. ChocolateyGUI  
+  [Parameter(Mandatory = $true)] [string] $AppName,                                 # e.g. Chocolatey Application ID Name like "ChocolateyGUI"  
   [Parameter(Mandatory = $false)] [switch] $UploadLog,                              # e.g. Use this switch to enable logging for MDT
   [Parameter(Mandatory = $false)] [string] $SrvIP,                                  # e.g. 192.168.1.1        
   [Parameter(Mandatory = $false)] [switch] $DeleteLogfile,                          # e.g. Use this switch to delete the local logfile            
