@@ -1811,11 +1811,13 @@ Looking for nested extension..."
 			Write-Log "ERROR: Could not get local installer in '$($ProGetAssetFolder)' - $_"
 		}
 
+        <#
         # Get manually downloaded file in temp directory based on parameters like publisher and name
         Write-Log "Looking for downloaded installer in temporary directory '$($downloadPath)'"
         Write-Host "    Looking for downloaded installer in temporary directory '$($downloadPath)'"
         try{
-            <# DEBUG
+             
+            # DEBUG
             Get-ChildItem -Path $downloadPath -Filter "*$($ext)" | ForEach-Object {
                 Write-Host "=========="
                 Write-Host "Checking: $($_.Name)"
@@ -1825,7 +1827,7 @@ Looking for nested extension..."
                 Write-Host "  FileDesc: $($version.FileDescription)"
                 Write-Host "=========="
             }
-            #>
+            
            
             $downloadedInstaller = Get-ChildItem -Path $downloadPath -Filter "*$($ext)" | Where-Object {
                 $nameMatch = $_.BaseName.ToLower() -like "*$($Softwarename)*"
@@ -1865,6 +1867,56 @@ Looking for nested extension..."
             Write-Log "WARNING: Could not find any downloaded file that matched using fallback in '$($downloadPath)' - $_"
 			$dwnFile = 0
         }
+        #>
+        # Get manually downloaded file in temp directory based on parameters like publisher and name
+        Write-Log "Looking for downloaded installer in temporary directory '$($downloadPath)'"
+        Write-Host "    Looking for downloaded installer in temporary directory '$($downloadPath)'"
+        try{
+            $softwareNameLower = $SoftwareName.ToLower()
+            $publisherLower    = $software.Publisher.ToLower()
+
+            $candidates = Get-ChildItem -Path $downloadPath -Filter "*$ext" | ForEach-Object {
+
+                $score = 0
+                $version = $_.VersionInfo
+
+                # Filename match
+                if ($_.BaseName.ToLower().Contains($softwareNameLower)) {
+                    $score += 3
+                }
+
+                if ($version) {
+                    $prod = $version.ProductName.ToLower()
+                    $desc = $version.FileDescription.ToLower()
+
+                    # Exact product name match
+                    if ($prod.Contains($softwareNameLower)) {
+                        $score += 5
+                    }
+
+                    # Publisher match
+                    if ($prod.Contains($publisherLower) -or $desc.Contains($publisherLower)) {
+                        $score += 1
+                    }
+                }
+
+                [PSCustomObject]@{
+                    File  = $_
+                    Score = $score
+                }
+            }
+
+            $downloadedInstaller = $candidates |
+                Sort-Object Score -Descending |
+                Select-Object -First 1 |
+                Select-Object -ExpandProperty File
+        }
+        catch {
+            Write-TrackedWarning "Could not get any item for a downloaded installer. Trying fallback method."
+            Write-Log "WARNING: Could not get any item for a downloaded installer.Trying fallback method. - $_"
+            $dwnFile = 0
+            
+        }
 
 
         # If found downloaded file, rename it to final contructed filename
@@ -1878,11 +1930,81 @@ Looking for nested extension..."
             $dwnVersionInfo = $downloadedInstaller.VersionInfo
             $downloadedFile = $($downloadedInstaller.FullName)
 
+            <#
             if($dwnFileName -match "\d+(\.\d+){1,3}") {
                 $latestVersion = $Matches[0]
             }
             else{
                 $latestVersion = $dwnVersionInfo.FileVersion
+            }
+            #>
+
+            <#
+            Write-Host "========== DEBUG =========="
+            Write-Host "Raw ProductVersion: $($dwnVersionInfo.ProductVersion)"
+            Write-Host "Raw FileVersion:    $($dwnVersionInfo.FileVersion)"
+            Write-Host "Type:               $($dwnVersionInfo.FileVersion.GetType().FullName)"
+            Write-Host "==========================="
+            #>
+
+            # ---------------------------
+            # Resolve version safely
+            # ---------------------------
+            <#
+            $latestVersion = $null
+
+            # Try extracting version from filename first
+            if ($dwnFileName -match '\d+(\.\d+){1,3}') {
+                $latestVersion = $Matches[0]
+            }
+            else {
+                # Try ProductVersion first (often cleaner)
+                $rawVersion = $dwnVersionInfo.ProductVersion
+
+                if (-not $rawVersion) {
+                    $rawVersion = $dwnVersionInfo.FileVersion
+                }
+
+                if ($rawVersion -and $rawVersion -match '\d+(\.\d+){1,3}') {
+                    try {
+                        $latestVersion = ([version]$Matches[0]).ToString()
+                    }
+                    catch {
+                        Write-Log "WARNING: Failed to normalize version '$rawVersion'"
+                        $latestVersion = $Matches[0]
+                    }
+                }
+            }
+
+            # Final fallback if everything fails
+            if (-not $latestVersion) {
+                Write-TrackedWarning "Could not resolve version from file. Using 'UNKNOWN'"
+                Write-Log "WARNING: Could not resolve version from file. Using 'UNKNOWN'"
+                $latestVersion = "UNKNOWN"
+            }
+            #>
+            
+            $latestVersion = $null
+
+            Write-Host ""
+            Write-Host -ForegroundColor Magenta "    LOCAL mode detected - manual version required."
+            $inputVersion = Read-Host "Please enter the correct software version"
+            Write-Host ""
+
+            # Validate version format (strict semantic version)
+            if ($inputVersion -match '^\d+(\.\d+){1,3}$') {
+                try {
+                    $latestVersion = ([version]$inputVersion).ToString()
+                }
+                catch {
+                    Write-TrackedError "Invalid version format. Aborting."
+                    Write-Log "ERROR: Invalid version format. Aborting."
+                    return
+                }
+            }
+            else {
+                Write-TrackedError "Version must match format: X.Y or X.Y.Z or X.Y.Z.W"
+                return
             }
 
             
