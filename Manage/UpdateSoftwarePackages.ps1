@@ -83,6 +83,7 @@
 		  Version - 0.0.13 - (2026-02-17) - Bugfix by constructing the final file name. Conversion for ProGet did not include subnames after a matched installer was found.
 		  Version - 0.0.14 - (2026-02-17) - Bugfix by by handling of zip files and nested installers
           Version - 0.0.15 - (2026-02-18) - Major Bug-Fixing
+          Version - 0.0.16 - (2026-02-18) - Adding security mechanics regarding api-tokens
           
 
           TODO:
@@ -98,8 +99,33 @@
 	PS> .\UpdateSoftwarePackages.ps1
 	Starts the script
 
-	PS> .\UpdateSoftwarePackages.ps1 -UpdateOption "API" -GitToken "ghp_XXXX" -ProGetFeedApiKey "XXXX" -ProGetAssetApiKey "XXXX" -ProGetBaseUrl "http://PSC-SWREPO1:8624" -ProGetAssetDir "choco-assets" -ProGetChocoFeedName "internal-choco" -ChocoPackageSourceRoot "E:\Choco\Packages"
-    Starts the script with specified parameters.
+	PS> .\UpdateSoftwarePackages.ps1 `
+	-UpdateOption WEB `
+	-ProGetFeedApiKey 1234abcd `
+	-ProGetAssetApiKey 1234abcd `
+	-ProGetBaseUrl https://psc-swrepo1.local:8625 `
+	-ProGetAssetDir choco-assets `
+	-ProGetChocoFeedName choco-production `
+	-ChocoPackageSourceRoot E:\Choco\Packages
+
+	PS> .\UpdateSoftwarePackages.ps1 `
+	-UpdateOption LOCAL `
+	-ProGetFeedApiKey 1234abcd `
+	-ProGetAssetApiKey 1234abcd `
+	-ProGetBaseUrl https://psc-swrepo1.local:8625 `
+	-ProGetAssetDir choco-assets `
+	-ProGetChocoFeedName choco-production `
+	-ChocoPackageSourceRoot E:\Choco\Packages
+
+	PS> .\UpdateSoftwarePackages.ps1 `
+	-UpdateOption API `
+	-GitToken github_abc_defg1234 `
+	-ProGetFeedApiKey 1234abcd `
+	-ProGetAssetApiKey 1234abcd `
+	-ProGetBaseUrl https://psc-swrepo1.local:8625 `
+	-ProGetAssetDir choco-assets `
+	-ProGetChocoFeedName choco-production `
+	-ChocoPackageSourceRoot E:\Choco\Packages
 #>
 
 param(
@@ -112,6 +138,10 @@ param(
     [Parameter(Mandatory)] [string] $ProGetChocoFeedName,                                                                           # e.g. internal-choco   
     [Parameter(Mandatory)] [string] $ChocoPackageSourceRoot                                                                         # e.g. E:\Choco\Packages                                                                                      
 )
+
+if (Get-Module -ListAvailable -Name PSReadLine) {
+    Set-PSReadLineOption -HistorySaveStyle SaveNothing
+}
 
 Clear-Host
 
