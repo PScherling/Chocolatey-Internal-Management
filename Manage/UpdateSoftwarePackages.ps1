@@ -1748,8 +1748,8 @@ function Invoke-EnterprisePackageUpdate {
                 Copy-Item -Path $Intent.LocalPickedFile -Destination $downloadTarget -Force | Out-Null
                 $artifactPath = $downloadTarget
                 $dwnFile = 1   # LOCAL source was successfully acquired
-                Write-Host "    Using local file:      $($Intent.LocalPickedFile)"
-                Write-Host "    Copied to:             $artifactPath"
+                Write-Host "    Using local file:     $($Intent.LocalPickedFile)"
+                Write-Host "    Copied to:            $artifactPath"
                 Write-Log  "LOCAL acquire success: '$($Intent.LocalPickedFile)' -> '$artifactPath'"
             }
             catch{
