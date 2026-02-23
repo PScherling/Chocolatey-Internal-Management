@@ -52,7 +52,13 @@
 .PARAMETER ChocoPackageSourceRoot
     Root directory where Chocolatey package source folders are located (e.g., E:\Choco\Packages).
 
+.PARAMETER WhatIfPublish
+    Test Mode switch that does everything except ProGet upload and push.
 
+.PARAMETER Force
+    To force a package update, even if there is now new version available. Caution! Use this only for testing scenarios or you will poison your nuspec and asset.
+
+    
 .LINK
 	https://github.com/microsoft/winget-pkgs  
 	https://learn.microsoft.com/en-us/windows/package-manager/winget/  
