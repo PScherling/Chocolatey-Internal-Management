@@ -256,14 +256,7 @@ $installerArchType = @{
 
 
 # ProGet Environment
-#$ProGetBaseUrl 				= "http://PSC-SWREPO1:8624"
-#$ProGetAssetDir       			= "choco-assets"
-#$ProGetAssetApiKey    			= ""   # API key with View/Download (+ Add/Repackage if you upload)
-#$ProGetFeedApiKey    			= ""   # API key with View/Download (+ Add/Repackage if you upload)
-#$ProGetChocoFeedName  			= "internal-choco"
 $ProGetChocoPushUrl   			= "$ProGetBaseUrl/nuget/$ProGetChocoFeedName"  # works with choco push
-# Where your Chocolatey package *source folders* live (nuspec + tools\ scripts)
-#$ChocoPackageSourceRoot 		= "E:\Choco\Packages"
 $newAssetFileSHA256             = ""
 
 
