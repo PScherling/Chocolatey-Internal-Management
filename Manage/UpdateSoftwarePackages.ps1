@@ -121,7 +121,7 @@
                                                  Chocolatey | ChocolateyGUI|          |          | .msi               | x64  | API          | GitHubRelease | chocolatey/ChocolateyGUI                                   | .*x64.*\.msi$ | false                 |
                                                  VMware     | VMwareTools  |          |          | .exe               | x64  | WEB          | WebDirectory  | https://packages.vmware.com/tools/esx/latest/windows/x64/  | .*\.exe$      | false                 |
                                                  Chocolatey | Chocolatey   |          |          | .nupkg             | x64  | WEB          | DirectUrl     | https://community.chocolatey.org/api/v2/package/chocolatey |               | false                 |
-                                                 AMD        | Adrenalin    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | false                  | 
+                                                 AMD        | Adrenalin    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | false                 | 
                                                  nVidia     | QuadroRTX    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | true                  | 
           
 
