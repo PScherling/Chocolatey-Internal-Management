@@ -85,7 +85,7 @@
           Version - 0.0.15 - (2026-02-18) - Major Bug-Fixing
           Version - 0.0.16 - (2026-02-18) - Adding security mechanics regarding api-tokens
           Version - 0.1.0 - (2026-02-18) - Release of Major Version 1
-          Version - 0.1.1 - (2026-02-19) - Major Update
+          Version - 0.1.1 - (2026-02-23) - Major Update
                                             Beginning of refactoring the whole script structure
                                             - Model: Discover latest -> Resolve installer candidate -> Download -> (optional) Extract nested -> Upload to ProGet Assets 
                                                         -> Update package source (nuspec/install script/checksums) -> Pack & push -> Cleanup
@@ -105,16 +105,18 @@
                                                                 .*\.exe$
                                                  -> 'ManualVersionRequired' (optional)
                                                         - true: always prompt for version (your chosen LOCAL behavior)
-                                                        - false/empty: allow auto-detection if I ever want it
+                                                        - false/empty: allow auto-detection if you ever want it
 
                                                 This lets me keep the current UX (“run API only / WEB only / LOCAL only”) while still adding clean source providers.
 
                                                  Example:
-                                                 Publisher  | SoftwareName | SubName1 | SubName2 | PreferredExtension | Arch | UpdateOption | SourceType    | SourceRef                                                  | AssetPattern  | ManualVersionRequired
-                                                 7zip       | 7zip         |          |          | .msi               | x64  | API          | Winget        | 7zip.7zip                                                  |               | false
-                                                 Chocolatey | ChocolateyGUI|          |          | .msi               | x64  | API          | GitHubRelease | chocolatey/ChocolateyGUI                                   | .*x64.*\.msi$ | false
-                                                 VMware     | VMwareTools  |          |          | .exe               | x64  | WEB          | WebDirectory  | https://packages.vmware.com/tools/esx/latest/windows/x64/  | .*\.exe$      | false
-                                                 Chocolatey | Chocolatey   |          |          | .nupkg             | x64  | WEB          | DirectUrl     | https://community.chocolatey.org/api/v2/package/chocolatey |               | false
+                                                 Publisher  | SoftwareName | SubName1 | SubName2 | PreferredExtension | Arch | UpdateOption | SourceType    | SourceRef                                                  | AssetPattern  | ManualVersionRequired | Notes
+                                                 7zip       | 7zip         |          |          | .msi               | x64  | API          | Winget        | 7zip.7zip                                                  |               | false                 |
+                                                 Chocolatey | ChocolateyGUI|          |          | .msi               | x64  | API          | GitHubRelease | chocolatey/ChocolateyGUI                                   | .*x64.*\.msi$ | false                 |
+                                                 VMware     | VMwareTools  |          |          | .exe               | x64  | WEB          | WebDirectory  | https://packages.vmware.com/tools/esx/latest/windows/x64/  | .*\.exe$      | false                 |
+                                                 Chocolatey | Chocolatey   |          |          | .nupkg             | x64  | WEB          | DirectUrl     | https://community.chocolatey.org/api/v2/package/chocolatey |               | false                 |
+                                                 AMD        | Adrenalin    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | false                  | 
+                                                 nVidia     | QuadroRTX    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | true                  | 
           
 
           TODO:
@@ -363,50 +365,105 @@ function Resolve-IntentFromLocal {
     $ext = $Software.PreferredExtension
     $softwareNameLower = $Software.SoftwareName.ToLower()
     $publisherLower    = $Software.Publisher.ToLower()
+    $Ref               = $Software.SourceRef
 
     $picked = $null
-    $candidates = Get-ChildItem -Path $DownloadPath -Filter "*$ext" -ErrorAction SilentlyContinue | ForEach-Object {
-        $score = 0
-        $v = $_.VersionInfo
+    Write-Log "===== Listing available candidates ====="
+    $candidates = Get-ChildItem -Path $DownloadPath -Filter "*$ext" -ErrorAction SilentlyContinue | 
+        ForEach-Object {
+            $score = 0
+            $v = $_.VersionInfo
+            
+            # DEBUG
+            #Write-Host -ForegroundColor Cyan "$v"
+            # DEBUG
 
-        if ($_.BaseName.ToLower().Contains($softwareNameLower)) { $score += 3 }
+            if ($_.BaseName.ToLower().Contains($softwareNameLower)) { 
+                $score += 3 
+            }
+            if ($_.BaseName.ToLower().Contains($publisherLower)) { 
+                $score += 1
+            }
 
-        if ($v) {
-            #$prod = ('' + $v.ProductName).ToLower()
-            #$desc = ('' + $v.FileDescription).ToLower()
-            $prod = if ($v.ProductName) { $v.ProductName.ToLower() } else { '' }
-            $desc = if ($v.FileDescription) { $v.FileDescription.ToLower() } else { '' }
+            if ($v) {
+                $prod = if ($v.ProductName) { $v.ProductName.ToLower() } else { '' }
+                $desc = if ($v.FileDescription) { $v.FileDescription.ToLower() } else { '' }
 
-            if ($prod.Contains($softwareNameLower)) { $score += 5 }
-            if ($prod.Contains($publisherLower) -or $desc.Contains($publisherLower)) { $score += 1 }
-        }
+                if ($prod.Contains($softwareNameLower)) { 
+                    $score += 5 
+                }
 
-        [pscustomobject]@{ File = $_; Score = $score }
+                if ($prod.Contains($publisherLower) -or $desc.Contains($publisherLower)) { 
+                    $score += 1 
+                }
+
+                if($_.BaseName -like "*$($Ref)*") {
+                    $score += 6
+                }
+
+                if($prod -eq $Ref) {
+                    $score += 15
+                }
+            }
+
+            Write-Log "Candidate: $($_.BaseName) | Score: $score"
+
+            [pscustomobject]@{ File = $_; Score = $score }
     }
 
-    $picked = $candidates | Sort-Object Score -Descending | Select-Object -First 1 | Select-Object -ExpandProperty File
+    <#
+    $picked = $candidates | 
+        Where-Object { 
+            $_.File.Name -like "*$($Software.Publisher)*" -or $_.File.Name -like "*$($Software.SoftwareName)*" -or $_.File.Name -like "*$($Ref)*" 
+        } | 
+        Sort-Object Score -Descending | 
+        Select-Object -First 1 | 
+        Select-Object File, Score #Select-Object -ExpandProperty File
+    #>
+    
+    $rankedCandidates = $candidates | Where-Object { $_.Score -ge 3 }
+
+    $picked = $rankedCandidates | 
+        Sort-Object Score -Descending | 
+        Select-Object -First 1 | 
+        Select-Object File, Score #Select-Object -ExpandProperty File
+    
+
     if (-not $picked) {
-        Write-TrackedError "LOCAL: No matching file found in '$DownloadPath' for $($Software.Publisher) $($Software.SoftwareName) ($($Software.Arch)$ext)"
+        Write-TrackedError "No matching file found in '$DownloadPath' for $($Software.Publisher) $($Software.SoftwareName) ($($Software.Arch)$ext)"
+        Write-Log "ERROR: No matching file found in '$DownloadPath' for $($Software.Publisher) $($Software.SoftwareName) ($($Software.Arch)$ext)"
         return $null
     }
+    else{
+        Write-Log "Picked candidate: $($picked.File.Name) | Score: $($picked.Score)"
+        Write-Host -ForegroundColor Magenta "    Picked candidate: $($picked.File.Name) | Score: $($picked.Score)"
+    }
+    Write-Log "========================================"
 
     # Force version prompt (as you want)
-    $inputVersion = Read-Host "LOCAL: Enter correct version for $($Software.SoftwareName) ($($Software.Arch))"
-    if ($inputVersion -notmatch '^\d+(\.\d+){1,3}$') {
-        Write-TrackedError "LOCAL: Invalid version format '$inputVersion' (expected X.Y[.Z[.W]])"
-        return $null
+    if($Software.ManualVersionRequired){
+        $inputVersion = Read-Host "LOCAL: Provide new version for '$($Software.Publisher) $($Software.SoftwareName) ($($Software.Arch))' | (e.g. 1.2.4)"
+        if ($inputVersion -notmatch '^\d+(\.\d+){1,3}$') {
+            Write-TrackedError "LOCAL: Invalid version format '$inputVersion' (expected X.Y[.Z[.W]])"
+            return $null
+        }
+        $ver = ([version]$inputVersion).ToString()
     }
-    $ver = ([version]$inputVersion).ToString()
+    else{
+        $ver = ([version]$picked.File.VersionInfo.ProductVersion).ToString()
+    }
+    Write-Host -ForegroundColor Magenta "    Provided Version: $ver"
+    Write-Log "Provided Version: $ver"
 
     return [pscustomobject]@{
         SourceType      = 'Local'
         Version         = $ver
         InstallerUrl    = $null
-        FileName        = $picked.Name
+        FileName        = $picked.File.Name
         Extension       = $Software.PreferredExtension
         Sha256          = $null
         Nested          = $null
-        LocalPickedFile = $picked.FullName
+        LocalPickedFile = $picked.File.FullName
     }
 }
 
@@ -678,7 +735,8 @@ function Get-SoftwarePaths {
         [string]$SoftwareName,
         [string]$SubName1,
         [string]$SubName2,
-        [string]$ManifestSubPath
+        [string]$ManifestSubPath,
+        [string]$Option
     )
 	
 	Write-Log "--------------------------------"
@@ -688,6 +746,7 @@ function Get-SoftwarePaths {
 	Write-Log "Sub Name 1:            $SubName1"
 	Write-Log "Sub Name 2:            $SubName2"
     Write-Log "Manifest Sub Path:     $ManifestSubPath"
+    Write-Log "Update Option:         $Option"
 	
 
     $firstLetter = $Publisher.Substring(0,1).ToLower()
@@ -704,14 +763,25 @@ function Get-SoftwarePaths {
         $subFolder2 = ""
         $ManifestSubPath = ""
 		
-		
-        $paths = @{
-            FirstLetter        = $firstLetter
-            ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
-            RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
-            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)"
-			LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)"
-            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)" 
+		if($Option -ne "LOCAL"){
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
+                RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)" 
+            }
+        }
+        else{
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "-"
+                RawUrl             = "-"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)" 
+            }
         }
     } 
     elseif(-not [string]::IsNullOrEmpty($SubName1) -and [string]::IsNullOrEmpty($SubName2) -and [string]::IsNullOrEmpty($ManifestSubPath)){
@@ -722,14 +792,27 @@ function Get-SoftwarePaths {
         $ManifestSubPath = ""
 		
 		Write-Log "Converted Sub Name 1: $convertedSubFolder1"
-		
-        $paths = @{
-            FirstLetter        = $firstLetter
-            ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
-            RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
-            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
-			LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)"
-            ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)" 
+
+
+		if($Option -ne "LOCAL"){
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
+                RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)" 
+            }
+        }
+        else{
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "-"
+                RawUrl             = "-"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)" 
+            }
         }
     }
     elseif(-not [string]::IsNullOrEmpty($SubName1) -and -not [string]::IsNullOrEmpty($SubName2) -and [string]::IsNullOrEmpty($ManifestSubPath)){
@@ -744,13 +827,25 @@ function Get-SoftwarePaths {
 		Write-Log "Converted Sub Name 1: $convertedSubFolder1"
 		Write-Log "Converted Sub Name 2: $convertedSubFolder2"
 
-        $paths = @{
-            FirstLetter        = $firstLetter
-            ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
-            RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
-            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
-            LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)$($convertedSubFolder2)"
-			ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)$($convertedSubFolder2)" 
+        if($Option -ne "LOCAL"){
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
+                RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)$($convertedSubFolder2)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)$($convertedSubFolder2)" 
+            }
+        }
+        else{
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "-"
+                RawUrl             = "-"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)$($convertedSubFolder2)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)$($convertedSubFolder2)" 
+            }
         }
     }
 
@@ -769,13 +864,26 @@ function Get-SoftwarePaths {
 		Write-Log "Converted Sub Name 2: $convertedSubFolder2"
         Write-Log "Converted Manifest PAth: $convertedManifestPath"
 
-        $paths = @{
-            FirstLetter        = $firstLetter
-            ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)/$($ManifestPath)"
-            RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)/$($ManifestPath)"
-            #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)/$($ManifestPath)"
-            LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)$($convertedSubFolder2).$($convertedManifestPath)"
-			ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)$($convertedSubFolder2).$($convertedManifestPath)" 
+
+        if($Option -ne "LOCAL"){
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "$($baseApiUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)/$($ManifestPath)"
+                RawUrl             = "$($baseRawUrl)/$($firstLetter)/$($Publisher)/$($SoftwareName)/$($subFolder1)/$($subFolder2)/$($ManifestPath)"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)/$($ManifestPath)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)$($convertedSubFolder2).$($convertedManifestPath)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)$($convertedSubFolder2).$($convertedManifestPath)" 
+            }
+        }
+        else{
+            $paths = @{
+                FirstLetter        = $firstLetter
+                ApiUrl             = "-"
+                RawUrl             = "-"
+                #LocalStoragePath   = "$($ChocoPackageSourceRoot)\$($Publisher)\$($SoftwareName)\$($subFolder1)\$($subFolder2)/$($ManifestPath)"
+                LocalStoragePath	= "$($ChocoPackageSourceRoot)\$($publisherForLocal)\$($softwareForLocal)$($convertedSubFolder1)$($convertedSubFolder2).$($convertedManifestPath)"
+                ProGetAssetRelativePath = "$($publisherForAssets)/$($softwareForAssets)$($convertedSubFolder1)$($convertedSubFolder2).$($convertedManifestPath)" 
+            }
         }
 
         # ensure no leading/trailing slashes
@@ -1535,6 +1643,12 @@ function Invoke-EnterprisePackageUpdate {
     # 9) pack + push
     # 10) cleanup
 
+    $dwnFile = 0
+    $pubAssetFile = 0
+    $updNuspec = 0
+    $updScript = 0
+    $nupkgPath = $null
+
     $proGetFolder = $Paths.ProGetAssetRelativePath
     $localPkgPath = $Paths.LocalStoragePath
 
@@ -1631,10 +1745,20 @@ function Invoke-EnterprisePackageUpdate {
 
         if ($Intent.SourceType -eq 'Local' -and $Intent.LocalPickedFile) {
             # Copy local picked file to deterministic target filename
-            Copy-Item -Path $Intent.LocalPickedFile -Destination $downloadTarget -Force | Out-Null
-            $artifactPath = $downloadTarget
-            Write-Host "    Using local file:      $($Intent.LocalPickedFile)"
-            Write-Host "    Copied to:             $artifactPath"
+            try{
+                Copy-Item -Path $Intent.LocalPickedFile -Destination $downloadTarget -Force | Out-Null
+                $artifactPath = $downloadTarget
+                $dwnFile = 1   # LOCAL source was successfully acquired
+                Write-Host "    Using local file:      $($Intent.LocalPickedFile)"
+                Write-Host "    Copied to:             $artifactPath"
+                Write-Log  "LOCAL acquire success: '$($Intent.LocalPickedFile)' -> '$artifactPath'"
+            }
+            catch{
+                $dwnFile = 0
+                Write-TrackedError "LOCAL acquire failed: $_"
+                Write-Log "ERROR: LOCAL acquire failed: $_"
+                throw
+            }
         }
         else {
             # Download remote to deterministic filename
@@ -1941,13 +2065,16 @@ function Invoke-EnterprisePackageUpdate {
         # --- print summary of actual task ---
         Write-Host "  === Pipeline Summary ==="
         Write-Log "=== Pipeline Summary ==="
+
+        $acquireLabel = if ($Intent.SourceType -eq 'Local') { "provided" } else { "downloaded" }
+        
         if($dwnFile -eq 1){
-            Write-Host -ForegroundColor Green "    New Software downloaded successfully"
-            Write-Log "New Software downloaded successfully"
+            Write-Host -ForegroundColor Green "    New Software $acquireLabel successfully"
+            Write-Log "New Software $acquireLabel successfully"
         }
         else{
-            Write-Host -ForegroundColor Red "    New Software download failed"
-            Write-Log "New Software download failed"
+            Write-Host -ForegroundColor Red "    New Software $acquireLabel failed"
+            Write-Log "New Software $acquireLabel failed"
         }
         if (-not $WhatIfPublish) { # -and (-not $($Software.SoftwareName) -eq "Chocolatey")
             if($pubAssetFile -eq 1){
@@ -2162,24 +2289,8 @@ elseif($selectedUpdateOption -eq "API"){
     #>
 
     $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | 
-        where-Object { $_.UpdateOption -eq $selectedUpdateOption -and $_.SourceType -eq 'GitHubRelease' } | 
+        where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
         ForEach-Object { New-SoftwareSpec $_ }
-
-<# DEBUG TEST #>
-    <#
-    $test = $SoftwareList | Where-Object { $_.SourceType -eq 'Winget' -and $_.SoftwareName -eq 'UI' } #| Select-Object -First 3
-    $test
-    foreach ($s in $test) {
-        $intent = Resolve-IntentFromWinget -Software $s
-        $intent | Format-List *
-        
-    }
-    Read-Host -Prompt "Continue"
-    #>  
-<# DEBUG TEST #>
-
-    #$SoftwareList = $SoftwareList | Where-Object { $_.SourceType -eq 'Winget' -and $_.SoftwareName -in @('7zip','UI','VCLibs') }
-    #$SoftwareList = $SoftwareList | Where-Object { $_.SourceType -eq 'Winget' -and $_.SoftwareName -in @('7zip') }
 
     if(-not $GitToken -or -not $ProGetAssetApiKey -or -not $ProGetFeedApiKey){
         Write-Log "Some API Tokens are missing."
@@ -2228,7 +2339,7 @@ elseif($selectedUpdateOption -eq "WEB"){
     #>
 
     $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | 
-        where-Object { $_.UpdateOption -eq $selectedUpdateOption -and $_.SourceType -eq 'DirectUrl' } | 
+        where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
         ForEach-Object { New-SoftwareSpec $_ }
     
 
@@ -2323,7 +2434,7 @@ foreach ($software in $SoftwareList) {
     Write-Log "Build API URL to list version folders and local storage path for download and checking current versions"
 
     # 1) Build paths once 
-    $paths = Get-SoftwarePaths -Publisher $software.Publisher -SoftwareName $software.SoftwareName -SubName1 $software.SubName1 -SubName2 $software.SubName2 -ManifestSubPath $software.ManifestSubPath
+    $paths = Get-SoftwarePaths -Publisher $software.Publisher -SoftwareName $software.SoftwareName -SubName1 $software.SubName1 -SubName2 $software.SubName2 -ManifestSubPath $software.ManifestSubPath -Option $software.UpdateOption
     
 
     if($updateOption -eq "LOCAL"){
@@ -2448,1231 +2559,6 @@ foreach ($software in $SoftwareList) {
         Write-Log "ERROR: Pipeline failed for $($software.Publisher) $($software.SoftwareName): $_"
         continue
     }
-
-    
-
-
-    
-<#
-    if($updateOption -eq "API"){
-        # Create headers for authentication
-        $headers = @{
-            "User-Agent" = "PowerShell"
-            "Authorization" = "token $GitToken"
-        }
-        Write-Log "Create headers for authentication."
-        
-        # Call GitHub API to get directory contents
-        Write-Log "Call GitHub API to get directory contents"
-        $versionsJson = Invoke-RestMethod -Uri $apiUrl -Headers $headers
-
-        # Filter only directories (versions)
-        Write-Log "Filter only directories (versions)"
-        $versionDirs = $versionsJson | Where-Object { $_.type -eq "dir" } | Select-Object -ExpandProperty name
-
-        # Filter and parse only valid semantic versions
-        $parsedVersionObjects = foreach ($dir in $versionDirs) {
-            if ($dir -match '^\d+(\.\d+){1,3}$') {
-                [PSCustomObject]@{
-                    Original = $dir
-                    Parsed = [Version]$dir
-                }
-            }
-        }
-
-        if (-not $parsedVersionObjects) {
-            #Write-Warning "No valid semantic versions found for $Softwarename"
-            Write-TrackedWarning "No valid semantic versions found for $Softwarename"
-            Write-Log "WARNING: No valid semantic versions found for $Softwarename"
-            continue
-        }
-
-        # Sort descending and get latest
-        $latestVersionObj = $parsedVersionObjects | Sort-Object Parsed -Descending | Select-Object -First 1
-        $latestVersion = $latestVersionObj.Original
-
-        Write-Host "    Latest version is:    $latestVersion"
-        Write-Log "Latest version is: $latestVersion"
-
-        # List files in latest version folder
-        Write-Log "List files in latest version folder"
-        $versionApiUrl = "$($apiUrl)/$($latestVersion)"
-        $filesJson = Invoke-RestMethod -Uri $versionApiUrl -Headers $headers #@{ "User-Agent" = "PowerShell" }
-
-        # Find yaml manifest file (ends with .yaml)
-        Write-Log "Find yaml manifest file (ends with .yaml)"
-        $yamlFile = $filesJson | Where-Object { $_.name -like "*.installer.yaml" } | Select-Object -First 1 -ExpandProperty name
-
-        if (-not $yamlFile) {
-            #Write-Warning "No YAML manifest found for $Softwarename version $latestVersion"
-            Write-TrackedWarning "No YAML manifest found for $Softwarename version $latestVersion"
-            Write-Log "WARNING: No YAML manifest found for $Softwarename version $latestVersion"
-            continue
-        }
-
-        # Build raw url to YAML
-        #$rawYamlUrl = "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/$firstLetter/$publisher/$Softwarename/$latestVersion/$yamlFile"
-        $rawYamlUrl = "$rawUrl/$latestVersion/$yamlFile"
-        Write-Host "    Reading YAML from $rawYamlUrl"
-        Write-Log "Reading YAML from $rawYamlUrl"
-
-        $yamlContent = Invoke-RestMethod -Uri $rawYamlUrl -Headers $headers #@{ "User-Agent" = "PowerShell" }
-
-        # Parse YAML - Requires PowerShell 7+
-        Write-Log "Parse YAML"
-        $yamlParsed = $yamlContent | ConvertFrom-Yaml
-
-        # Find installer matching Arch and PreferredExtension
-        Write-Log "Find installer matching Arch and PreferredExtension"
-
-        $preferredExt = $software.PreferredExtension.TrimStart('.')  # e.g., "exe", "msi", "msix"
-        
-        
-        # If InstallerType is missing in installer, use top-level one
-        $installers = $yamlParsed.Installers | ForEach-Object {
-            if (-not $_.InstallerType -and $yamlParsed.InstallerType) {
-                $_ | Add-Member -MemberType NoteProperty -Name InstallerType -Value $yamlParsed.InstallerType -Force
-            }
-            $_
-        }
-
-        # Match logic with better fallback
-        $installer = $installers | Where-Object {
-            $_.Architecture -eq $software.Arch -and (
-                ($installerTypeToExtension[$_.InstallerType] -eq $preferredExt) -or
-                ($_.InstallerUrl -like "*.$preferredExt*")
-            )
-        } | Select-Object -First 1
-
-        if (-not $installer) {
-            Write-TrackedWarning "No matching installer found for $Softwarename with Arch '$($software.Arch)' and preffered extension '$($software.PreferredExtension)'
-Looking for nested extension..."
-            Write-Log "WARNING: No matching installer found for $Softwarename with Arch $($software.Arch) and preffered extension $($software.PreferredExtension). Looking for nested installer extension"
-        
-			$nestedInstallers = $yamlParsed.Installers | ForEach-Object {
-				if (-not $_.NestedInstallerType -and $yamlParsed.NestedInstallerType) {
-					$_ | Add-Member -MemberType NoteProperty -Name NestedInstallerType -Value $yamlParsed.NestedInstallerType -Force
-				}
-				$_
-			}
-			
-			$nestedInstaller = $nestedInstallers | Where-Object {
-				$_.Architecture -eq $software.Arch -and (
-					($installerTypeToExtension[$_.NestedInstallerType] -eq $preferredExt)
-				)
-			} | Select-Object -First 1
-			
-			if(-not $nestedInstaller){
-				Write-TrackedWarning "No matching installers for $Softwarename with Arch $($software.Arch) and preffered extension $($software.PreferredExtension)"
-				Write-Log "WARNING: No matching installers found for $Softwarename with Arch $($software.Arch) and preffered extension $($software.PreferredExtension)"
-			}
-			else{
-				if ($nestedInstaller -and $nestedInstaller.NestedInstallerFiles) {
-
-					foreach ($file in $nestedInstaller.NestedInstallerFiles) {
-						Write-Log "Found nested file: $($file.RelativeFilePath)"
-					}
-
-					$relativePath = ($nestedInstaller.NestedInstallerFiles |
-						Where-Object { $_.RelativeFilePath -like "*$($software.Arch)*" } |
-						Select-Object -First 1).RelativeFilePath
-
-					Write-Log "Selected nested file: $relativePath"
-					
-				}
-
-				Write-Host -ForegroundColor Magenta "    Nested installer found"
-				Write-Host -ForegroundColor Magenta "    Nested installer Url: $($nestedInstaller.InstallerUrl)"
-				Write-Host -ForegroundColor Magenta "    Nested installer extension: $($nestedInstaller.NestedInstallerType)"
-				Write-Host -ForegroundColor Magenta "    Nested installer file: $relativePath"
-				Write-Log "Nested installer found"
-				Write-Log "Nested installer Url: $($nestedInstaller.InstallerUrl)"
-				Write-Log "Nested installer extension: $($nestedInstaller.NestedInstallerType)"
-				Write-Log "Nested installer file: $relativePath"
-				$installer = $nestedInstaller
-				#Read-Host -Prompt "DEBUG"
-			}
-		} 
-        
-		if($installer) {
-            Write-Log "Matched installer: $($installer.InstallerUrl)"
-            $installerUrl = $installer.InstallerUrl
-			
-			if($subName1 -ne "-" -and $subName2 -eq "-"){
-				$Softwarename = "$($Softwarename)$($subName1)"
-				Write-Log "Full Softwarename is: $($Softwarename)"
-			}				
-			if($subName1 -ne "-" -and $subName2 -ne "-"){
-				$Softwarename = "$($Softwarename)$($subName1)$($subName2)"
-				Write-Log "Full Softwarename is: $($Softwarename)"
-			}
-			else{
-				Write-Log "Full Softwarename is: $($Softwarename)"
-			}
-            
-			$Softwarename = Convert-NameForProGetPath $Softwarename
-            $publisher = Convert-NameForProGetPath $publisher
-
-            Write-Host "    Installer URL for $Softwarename ($($software.Arch)): $($installerUrl)"
-            Write-Log "Installer URL for $Softwarename ($($software.Arch)): $($installerUrl)"
-
-            # Construct final file name: SWName_SubName1_Arch_Version.Extension
-            Write-Log "Construct final file name: Name_Arch_Version.Extension"
-            $ext = [IO.Path]::GetExtension($installerUrl.Split("?")[0]) # fallback if not from YAML
-            if (-not $ext -or $ext -eq '') {
-                $ext = $software.PreferredExtension
-            }
-            
-            $finalFileName = "$($Softwarename)_$($software.Arch)_$($latestVersion)$($ext)"
-            Write-Log "Final filename: $finalFileName"
-            
-            # Get existing installer version
-            # Escape software name for use in regex
-            $escapedSoftwareName = [regex]::Escape($Softwarename)
-
-            # Excape software subname for use in regex
-            #$escapedSWSubName1 = [regex]::Escape($subName1)
-            #$escapedSWSubName2 = [regex]::Escape($subName2)
-            
-            # Upload to ProGet Assets
-            Write-Log "=== Start Checking Software Task ==="
-            Write-Log "Get existing installer version for $Softwarename | $escapedSoftwareName"
-			Write-Log "Looking for installer in '$($ProGetAssetFolder)'"
-            Write-Host "  === Start Checking Software Task ==="
-			Write-Host "    Get existing installer version for $Softwarename"
-			Write-Host "    Looking for installer in '$($ProGetAssetFolder)'"
-            
-			try{
-				$existingInstaller = Get-ExistingInstallerFromProGetAssets `
-					-AssetFolderPath $ProGetAssetFolder `
-					-SoftwareName $Softwarename `
-					-Arch $software.Arch `
-					-Extension $preferredExt #-Extension $ext
-					
-			}
-			catch{
-				Write-TrackedError "Could not get installer in '$($ProGetAssetFolder)' - $_"
-                Write-Log "ERROR: Could not get installer in '$($ProGetAssetFolder)' - $_"
-			}
-			
-			if ($null -eq $existingInstaller) {
-				Write-TrackedWarning "No existing installer found in ProGet Assets for $Softwarename ($($software.Arch)$ext)"
-				Write-Log "WARNING: No existing installer found in ProGet Assets for $Softwarename ($($software.Arch)$ext)"
-			}
-			else{
-				Write-Log "Current version: $($existingInstaller.Name)"
-				Write-Log "Available version: $($finalFileName)"
-				Write-Host "    Current version:      $($existingInstaller.Version)"
-				Write-Host "    Available version:    $($latestVersion)"
-			}
-
-            if($($existingInstaller.Version) -eq $($latestVersion)){
-                Write-Log "Version for $Softwarename already up to date. Skipping download."
-                Write-Host -ForegroundColor Magenta "    Version for $Softwarename already up to date. Skipping download."
-                $shouldDownload = $false
-            }
-            else{
-                Write-Log "New version for $Softwarename available."
-                Write-Host -ForegroundColor Green "    New version for $Softwarename available."
-                $shouldDownload = $true
-            }
-
-            if($shouldDownload) {
-                $newFile = Join-Path $downloadPath $finalFileName
-                #$currentLocalFile = "$($localStoragePath)\tools\$($existingInstaller.Name)"
-                $currentLocalFile = Join-Path "$($localStoragePath)\tools\" "$($existingInstaller.Name)" 
-                
-                #Debug output
-                #Write-Host "    Current Asset File: $currentAssetFile"
-                #Write-Host "    New Asset File: $newAssetFile"
-
-                Write-Log "=== Start File Download Task ==="
-                Write-Log "Downloading to $newFile"
-                Write-Host "  === Start File Download Task ==="
-                Write-Host "    Downloading to: '$($newFile)'"
-
-                # Start Download
-                try{
-                    Start-DownloadInstallerFile -Url "$installerUrl" -DestinationPath "$newFile"
-                    $dwnFile = 1
-                } catch{
-                    Write-Log "WARNING: Download could not be started - $_"
-                    Write-TrackedError "Download could not be started - $_"
-                    $dwnFile = 0
-                }
-				
-				# In case we download a zip file
-				if($ext -eq ".zip"){
-					Write-Log "Attempt to extract zip file"
-					Write-Host -ForegroundColor Magenta "    Attempt to extract zip file"
-					#$extractDir = "$($downloadPath)\$($Softwarename)_$($software.Arch)_$($latestVersion)"
-					
-                    try{						
-						Add-Type -AssemblyName System.IO.Compression.FileSystem
-						
-						$zipPath = $newFile
-						$destinationFile = Join-Path $downloadPath (Split-Path $relativePath -Leaf)
-						
-						$zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-						
-						$entry = $zip.Entries | Where-Object {
-							$_.FullName -eq $relativePath
-						}
-						
-						if ($entry) {
-							[System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destinationFile, $true)
-							Write-Host -ForegroundColor Magenta "    Extracted nested file: $destinationFile"
-						}
-						else {
-							Write-TrackedWarning "Nested file not found in archive."
-						}
-
-						$zip.Dispose()
-					}
-					catch{
-						Write-TrackedWarning "Zip file could not be extracted."
-						Write-Log "WARNING: Zip file could not be extracted"
-					}
-				}
-
-                # Clean old installer file in Chocolatey Package Directory
-                if($($existingInstaller.Name)){
-                    Write-Log "Removing old installer file"
-                    Write-Host "    Removing old installer file"
-                    if(Test-Path -path "$($currentLocalFile)"){
-                        
-                        Remove-File -Path "$($currentLocalFile)"
-                    }
-                    else{
-                        Write-TrackedWarning "File '$($currentLocalFile)' not found - $_"
-                        Write-Log "WARNING: File '$($currentLocalFile)' not found - $_"
-                    }
-                }
-                
-
-                # Copy File into Chocolatey Package Directory
-                Write-Log "Copy new installer file into choclatey package directory"
-                Write-Host "    Copy new installer file into choclatey package directory"
-                try{
-                    Copy-File -Source "$($newFile)" -Dest "$($localStoragePath)\tools"
-                }
-                catch{
-                    Write-TrackedWarning "Directory '$($localStoragePath)\tools' not found - $_"
-                    Write-Log "WARNING: Directory '$($localStoragePath)\tools' not found - $_"
-                }
-				
-                Write-Log "=== Start File Upload Task ==="
-                Write-Log "Uploading to ProGet Assets"
-                Write-Host "  === Start File Upload Task ==="
-                Write-Host "    Uploading to ProGet Assets"
-				try{
-					$pubAssetFile = Publish-ProGetAssetFile -LocalFilePath "$($newFile)" -AssetFolder "$($ProGetAssetFolder)" -AssetFileName "$($finalFileName)" -Key "$ProGetAssetApiKey" -Method POST
-				}
-				catch{
-                    Write-Log "ERROR: Upload not successfull - $_"
-                    Write-TrackedError "Upload not successfull - $_"
-				}
-				
-				# Fetch SHA256 from metadata
-                Write-Log "=== Start Chocolatey Package Task ==="
-                Write-Log "Fetching SH256 hash from new file"
-                Write-Host "  === Start Chocolatey Package Task ==="
-                Write-Host "    Fetching SH256 hash from new file"
-                try{
-                    $newAssetFileSHA256 = Get-ProGetAssetSha256 -FolderPath "$($ProGetAssetFolder)" -FileName "$($finalFileName)" -Key "$ProGetAssetApiKey"
-                }
-                catch{
-                    Write-Log "ERROR: Could not fetch SHA256 information from new file - $_"
-                    Write-TrackedError "Could not fetch SHA256 information from new file - $_"
-                }
-
-				# Update Chocolatey package
-                Write-Log "Update Chocolatey package"
-                Write-Host "    Update Chocolatey package"
-				# You should store each package source in a stable folder: E:\ChocoSrc\<PackageId>\
-                $packageId = "$($Softwarename)" 
-                #$pkgDir    = Join-Path $ChocoPackageSourceRoot $packageId
-                $nuspec    = Join-Path $($localStoragePath) "$packageId.nuspec"
-                $checksums = Join-Path $($localStoragePath) "tools\checksums.json"
-                
-                Write-Log "Package Information: ID='$($packageId)' DIR='$($localStoragePath)' Nuspec='$($nuspec)' Checksum='$($checksums)' PushURL='$($ProGetChocoPushUrl)'"
-                Write-Host "    PackageID:            $packageId"
-                Write-Host "    Package Directory:    $($localStoragePath)"
-                Write-Host "    Nuspec File:          $nuspec"
-                Write-Host "    Checksum File:        $checksums"
-                Write-Host "    Push URL:             $ProGetChocoPushUrl"
-
-                if (-not (Test-Path $($localStoragePath))) { 
-                    Write-Log "ERROR: Chocolatey package source folder not found: $($localStoragePath) - $_"
-                    Write-TrackedError "Chocolatey package source folder not found: $($localStoragePath) - $_" 
-                }
-                if (-not (Test-Path $nuspec)) { 
-                    Write-Log "ERROR: Nuspec not found: $nuspec - $_"
-                    Write-TrackedError "Nuspec not found: $nuspec - $_" 
-                }
-                if (-not (Test-Path $checksums)) { 
-                    Write-Log "WARNING: checksums.json not found: $checksums - Creating it..."
-                    Write-TrackedWarning "checksums.json not found: $checksums - Creating it..." 
-                    try{
-                        New-Item -ItemType File -Path "$checksums" | Out-Null
-
-                        @"
-{
-  "x64": "",
-  "x86": ""
-}
-"@ | Set-Content -Path $checksums -Encoding UTF8
-
-                    }
-                    catch{
-                        Write-Log "ERROR: Checksum file could not be created - $_"
-                        Write-TrackedError "Checksum file could not be created - $_" 
-                    }
-                }
-
-                Write-Log "Set '$nuspec' to new Version to: $latestVersion"
-                Write-Host "    Set '$nuspec' to new Version to: $latestVersion"
-                try{
-                    $updNuspec = Set-NuspecVersion  -NuspecPath "$nuspec" -NewVersion "$latestVersion"
-                }
-                catch{
-                    Write-Log "ERROR: Could not set chocolatey nuspec version - $_"
-                    Write-TrackedError "Could not set chocolatey nuspec version - $_"
-                }
-
-                Write-Log "Set checksum file: $checksums"
-                Write-Host "    Set checksum file: $checksums"
-                try{
-                    Set-ChecksumsJson  -ChecksumsPath "$checksums" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
-                }
-                catch{
-                    Write-Log "ERROR: Could not set checksum file - $_"
-                    Write-TrackedError "Could not set checksum file - $_"
-                }
-
-                # Adapt Chocolatey Install PowerShell Script "tools\chocolateyinstall.ps1"
-                Write-Log "Update Installation script"
-                Write-Host "    Update Installation script"
-
-                $extNoDot = $ext.TrimStart('.').ToLower()
-                
-                try{
-                    $updScript = Update-ChocoInstallationScript -ToolsDir "$($localStoragePath)\tools" -ProGetBaseUrl "$($ProGetBaseUrl)" -ProGetAssetDir "$($ProGetAssetDir)" -AssetFolderPath "$($ProGetAssetFolder)" -InstallerFileName "$($finalFileName)" -FileType "$extNoDot" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
-                }
-                catch{
-                    Write-Log "ERROR: Could not update installation script - $_"
-                    Write-TrackedError "Could not update installation script - $_"
-                }
-
-				# Pack and Push the Chocolatey package to ProGet feed
-                Write-Log "Pack and Push the Chocolatey package to ProGet feed"
-                Write-Host "    Pack and Push the Chocolatey package to ProGet feed"
-                try{
-				    $nupkgPath = Publish-ChocoPackageToProGet -PackageSourceDir $($localStoragePath) -PushUrl $ProGetChocoPushUrl -Key $ProGetFeedApiKey
-                }
-                catch{
-                    Write-Log "ERROR: Could not pack and push new chocolatey package - $_"
-                    Write-TrackedError "Could not pack push new chocolatey package - $_"
-                }
-
-                # Clean temp download directory
-                if($nupkgPath){ 
-                    Remove-File -Path "$($newFile)" 
-                }
-                else{
-                    Write-Log "WARNING: Removing of temp downloaded file '$($newFile)' not executed."
-                    Write-TrackedWarning "Removing of temp downloaded file '$($newFile)' not executed."
-                }
-
-                Write-Host "  === Task Summary ==="
-                Write-Log "=== Task Summary ==="
-                if($dwnFile -eq 1){
-                    Write-Host -ForegroundColor Green "    New Software downloaded successfully"
-                    Write-Log "New Software downloaded successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    New Software download failed"
-                    Write-Log "New Software download failed"
-                }
-                if($pubAssetFile -eq 1){
-                    Write-Host -ForegroundColor Green "    New File published successfully in ProGet Assets"
-                    Write-Log "New File published successfully in ProGet Assets"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    New File publish failed in ProGet Assets"
-                    Write-Log "New File publish failed in ProGet Assets"
-                }
-                if($updNuspec -eq 1){
-                    Write-Host -ForegroundColor Green "    Chocolatey 'nuspec' file updated successfully"
-                    Write-Log "Chocolatey 'nuspec' file updated successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey 'nuspec' file update failed"
-                    Write-Log "Chocolatey 'nuspec' file update failed"
-                }
-                if($updScript -eq 1){
-                    Write-Host -ForegroundColor Green "    Chocolatey 'install script' file updated successfully"
-                    Write-Log "Chocolatey 'install script' file updated successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey 'install script' file update failed"
-                    Write-Log "Chocolatey 'install script' file update failed"
-                }
-                if($nupkgPath){
-                    Write-Host -ForegroundColor Green "    Chocolatey package created and pushed successfully"
-                    Write-Log "Chocolatey package created and pushed successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey package creation and push failed"
-                    Write-Log "Chocolatey package creation and push failed"
-                }
-            }
-
-        } 
-    }
-    elseif ($updateOption -eq "LOCAL") {
-        
-        # Find local installer and current version
-        # Escape software name for use in regex
-        $escapedSoftwareName = [regex]::Escape($Softwarename)
-
-        Write-Log "Find installer matching Arch and PreferredExtension"
-        Write-Log "Get existing installer version for $Softwarename | $escapedSoftwareName"
-        #Write-Log "Looking for installer in '$($localStoragePath)'"
-        Write-Log "Looking for installer in '$($ProGetAssetFolder)'"
-		Write-Host "    Get existing installer version for $Softwarename"
-        #Write-Host "    Looking for installer in '$($localStoragePath)'"
-		Write-Host "    Looking for installer in '$($ProGetAssetFolder)'"
-		
-		
-		try{
-			$existingInstaller = Get-ExistingInstallerFromProGetAssets `
-				-AssetFolderPath $ProGetAssetFolder `
-				-SoftwareName $Softwarename `
-				-Arch $software.Arch `
-				-Extension $ext
-		}
-		catch{
-			Write-TrackedError "Could not get local installer in '$($ProGetAssetFolder)' - $_"
-			Write-Log "ERROR: Could not get local installer in '$($ProGetAssetFolder)' - $_"
-		}
-
-        
-        # Get manually downloaded file in temp directory based on parameters like publisher and name
-        Write-Log "Looking for downloaded installer in temporary directory '$($downloadPath)'"
-        Write-Host "    Looking for downloaded installer in temporary directory '$($downloadPath)'"
-        try{
-            $softwareNameLower = $SoftwareName.ToLower()
-            $publisherLower    = $software.Publisher.ToLower()
-
-            $candidates = Get-ChildItem -Path $downloadPath -Filter "*$ext" | ForEach-Object {
-
-                $score = 0
-                $version = $_.VersionInfo
-
-                # Filename match
-                if ($_.BaseName.ToLower().Contains($softwareNameLower)) {
-                    $score += 3
-                }
-
-                if ($version) {
-                    $prod = $version.ProductName.ToLower()
-                    $desc = $version.FileDescription.ToLower()
-
-                    # Exact product name match
-                    if ($prod.Contains($softwareNameLower)) {
-                        $score += 5
-                    }
-
-                    # Publisher match
-                    if ($prod.Contains($publisherLower) -or $desc.Contains($publisherLower)) {
-                        $score += 1
-                    }
-                }
-
-                [PSCustomObject]@{
-                    File  = $_
-                    Score = $score
-                }
-            }
-
-            $downloadedInstaller = $candidates |
-                Sort-Object Score -Descending |
-                Select-Object -First 1 |
-                Select-Object -ExpandProperty File
-        }
-        catch {
-            Write-TrackedWarning "Could not get any item for a downloaded installer. Trying fallback method."
-            Write-Log "WARNING: Could not get any item for a downloaded installer.Trying fallback method. - $_"
-            $dwnFile = 0
-            
-        }
-
-
-        # If found downloaded file, rename it to final contructed filename
-        # Construct final file name: SWName_SubName1_Arch_Version.Extension
-        if($downloadedInstaller){
-			$dwnFile = 1
-            Write-Host "    Downloaded installer '$($downloadedInstaller.BaseName)' found."
-            Write-Log "Construct final filename: Name_Arch_Version.Extension"
-            Write-Log "Downloaded filename: $($downloadedInstaller.BaseName)"
-            $dwnFileName = $downloadedInstaller.BaseName
-            $dwnVersionInfo = $downloadedInstaller.VersionInfo
-            $downloadedFile = $($downloadedInstaller.FullName)
-
-                       
-            $latestVersion = $null
-
-            Write-Host ""
-            Write-Host -ForegroundColor Magenta "    LOCAL mode detected - manual version required."
-            $inputVersion = Read-Host "Please enter the correct software version"
-            Write-Host ""
-
-            # Validate version format (strict semantic version)
-            if ($inputVersion -match '^\d+(\.\d+){1,3}$') {
-                try {
-                    $latestVersion = ([version]$inputVersion).ToString()
-                }
-                catch {
-                    Write-TrackedError "Invalid version format. Aborting."
-                    Write-Log "ERROR: Invalid version format. Aborting."
-                    return
-                }
-            }
-            else {
-                Write-TrackedError "Version must match format: X.Y or X.Y.Z or X.Y.Z.W"
-                return
-            }
-
-            
-            if($subName1 -ne "-"){
-                $Softwarename = "$($Softwarename)_$($subName1)"
-            }
-            if($subName2 -ne "-"){
-                $Softwarename = "$($Softwarename)_$($subName2)"
-            }
-
-            $finalFileName = "$($Softwarename)_$($software.Arch)_$($latestVersion)$($ext)"
-            Write-Log "Final filename: $finalFileName"
-
-            # Copy downloaded file with new name
-            Write-Log "Rename downloaded file to '$($finalFileName)'"
-            Write-Host "    Rename downloaded file to '$($finalFileName)'"
-			if($($downloadedFile) -eq "$($downloadPath)\$($finalFileName)"){
-				Write-Log "File already exists. Skipping rename task"
-				Write-Host -ForegroundColor Magenta "    File already exists. Skipping rename task"
-			}
-			else{
-				try{
-					Copy-Item -Path $($downloadedFile) -Destination "$($downloadPath)\$($finalFileName)" -Force | Out-Null
-					Write-Log "Copied new version to '$($downloadPath)\$($finalFileName)'"
-				} catch {
-					Write-Log "ERROR: Failed to copy '$($downloadPath)\$($finalFileName)' - $_"
-					Write-TrackedError "Failed to copy '$($downloadPath)\$($finalFileName)' - $_"
-				}
-			}
-            
-            # Compare versions			
-			if ($null -eq $existingInstaller) {
-				Write-TrackedWarning "No existing installer found in ProGet Assets for $Softwarename ($($software.Arch)$ext)"
-				Write-Log "WARNING: No existing installer found in ProGet Assets for $Softwarename ($($software.Arch)$ext)"
-			}
-			else{
-				Write-Log "Current version: $($existingInstaller.Name)"
-				Write-Log "Available version: $($finalFileName)"
-				Write-Host "    Current version:      $($existingInstaller.Name)"
-				Write-Host "    Available version:    $($finalFileName)"
-			}
-            
-
-            if($($existingInstaller.Name) -eq $finalFileName){
-                Write-Log "Local version for $Softwarename already up to date. Skipping."
-                Write-Host -ForegroundColor Magenta "    Local version for $Softwarename already up to date. Skipping."
-                $shouldUpdate = $false
-            }
-            else{
-                Write-Log "New version for $Softwarename available."
-                Write-Host -ForegroundColor Green "    New version for $Softwarename available."
-                $shouldUpdate = $true
-            }
-
-            if($shouldUpdate) {
-                $newFile = Join-Path $downloadPath $finalFileName
-                #$currentLocalFile = "$($localStoragePath)\tools\$($existingInstaller.Name)"
-                $currentLocalFile = Join-Path "$($localStoragePath)\tools\" "$($existingInstaller.Name)"
-				
-				# Clean old installer file in Chocolatey Package Directory
-                if($($existingInstaller.Name)){
-                    Write-Log "Removing old installer file"
-                    Write-Host "    Removing old installer file"
-                    if(Test-Path -path "$($currentLocalFile)"){
-                        
-                        Remove-File -Path "$($currentLocalFile)"
-                    }
-                    else{
-                        Write-TrackedWarning "File '$($currentLocalFile)' not found - $_"
-                        Write-Log "WARNING: File '$($currentLocalFile)' not found - $_"
-                    }
-                }
-				
-				 # Copy File into Chocolatey Package Directory
-                Write-Log "Copy new installer file into choclatey package directory"
-                Write-Host "    Copy new installer file into choclatey package directory"
-                try{
-                    Copy-File -Source "$($newFile)" -Dest "$($localStoragePath)\tools"
-                }
-                catch{
-                    Write-TrackedWarning "Directory '$($localStoragePath)\tools' not found - $_"
-                    Write-Log "WARNING: Directory '$($localStoragePath)\tools' not found - $_"
-                }
-				
-                Write-Log "=== Start File Upload Task ==="
-                Write-Log "Uploading to ProGet Assets"
-                Write-Host "  === Start File Upload Task ==="
-                Write-Host "    Uploading to ProGet Assets"
-				try{
-					$pubAssetFile = Publish-ProGetAssetFile -LocalFilePath "$($newFile)" -AssetFolder "$($ProGetAssetFolder)" -AssetFileName "$($finalFileName)" -Key "$ProGetAssetApiKey" -Method POST
-				}
-				catch{
-                    Write-Log "ERROR: Upload not successfull - $_"
-                    Write-TrackedError "Upload not successfull - $_"
-				}
-				
-				# Fetch SHA256 from metadata
-                Write-Log "=== Start Chocolatey Package Task ==="
-                Write-Log "Fetching SH256 hash from new file"
-                Write-Host "  === Start Chocolatey Package Task ==="
-                Write-Host "    Fetching SH256 hash from new file"
-                try{
-                    $newAssetFileSHA256 = Get-ProGetAssetSha256 -FolderPath "$($ProGetAssetFolder)" -FileName "$($finalFileName)" -Key "$ProGetAssetApiKey"
-                }
-                catch{
-                    Write-Log "ERROR: Could not fetch SHA256 information from new file - $_"
-                    Write-TrackedError "Could not fetch SHA256 information from new file - $_"
-                }
-
-				# Update Chocolatey package
-                Write-Log "Update Chocolatey package"
-                Write-Host "    Update Chocolatey package"
-				# You should store each package source in a stable folder: E:\ChocoSrc\<PackageId>\
-                $packageId = "$($Softwarename)" 
-                #$pkgDir    = Join-Path $ChocoPackageSourceRoot $packageId
-                $nuspec    = Join-Path $($localStoragePath) "$packageId.nuspec"
-                $checksums = Join-Path $($localStoragePath) "tools\checksums.json"
-                
-                Write-Log "Package Information: ID='$($packageId)' DIR='$($localStoragePath)' Nuspec='$($nuspec)' Checksum='$($checksums)' PushURL='$($ProGetChocoPushUrl)'"
-                Write-Host "    PackageID:            $packageId"
-                Write-Host "    Package Directory:    $($localStoragePath)"
-                Write-Host "    Nuspec File:          $nuspec"
-                Write-Host "    Checksum File:        $checksums"
-                Write-Host "    Push URL:             $ProGetChocoPushUrl"
-
-                if (-not (Test-Path $($localStoragePath))) { 
-                    Write-Log "ERROR: Chocolatey package source folder not found: $($localStoragePath) - $_"
-                    Write-TrackedError "Chocolatey package source folder not found: $($localStoragePath) - $_" 
-                }
-                if (-not (Test-Path $nuspec)) { 
-                    Write-Log "ERROR: Nuspec not found: $nuspec - $_"
-                    Write-TrackedError "Nuspec not found: $nuspec - $_" 
-                }
-                if (-not (Test-Path $checksums)) { 
-                    Write-Log "WARNING: checksums.json not found: $checksums - Creating it..."
-                    Write-TrackedWarning "checksums.json not found: $checksums - Creating it..." 
-                    try{
-						
-                        New-Item -ItemType File -Path "$checksums" | Out-Null
-
-                        @"
-{
-  "x64": "",
-  "x86": ""
-}
-"@ | Set-Content -Path $checksums -Encoding UTF8
-
-                    }
-                    catch{
-                        Write-Log "ERROR: Checksum file could not be created - $_"
-                        Write-TrackedError "Checksum file could not be created - $_" 
-                    }
-                }
-
-                Write-Log "Set '$nuspec' to new Version to: $latestVersion"
-                Write-Host "    Set '$nuspec' to new Version to: $latestVersion"
-                try{
-                    $updNuspec = Set-NuspecVersion  -NuspecPath "$nuspec" -NewVersion "$latestVersion"
-                }
-                catch{
-                    Write-Log "ERROR: Could not set chocolatey nuspec version - $_"
-                    Write-TrackedError "Could not set chocolatey nuspec version - $_"
-                }
-
-                Write-Log "Set checksum file: $checksums"
-                Write-Host "    Set checksum file: $checksums"
-                try{
-                    Set-ChecksumsJson  -ChecksumsPath "$checksums" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
-                }
-                catch{
-                    Write-Log "ERROR: Could not set checksum file - $_"
-                    Write-TrackedError "Could not set checksum file - $_"
-                }
-
-                # Adapt Chocolatey Install PowerShell Script "tools\chocolateyinstall.ps1"
-                Write-Log "Update Installation script"
-                Write-Host "    Update Installation script"
-
-                $extNoDot = $ext.TrimStart('.').ToLower()
-                
-                try{
-                    $updScript = Update-ChocoInstallationScript -ToolsDir "$($localStoragePath)\tools" -ProGetBaseUrl "$($ProGetBaseUrl)" -ProGetAssetDir "$($ProGetAssetDir)" -AssetFolderPath "$($ProGetAssetFolder)" -InstallerFileName "$($finalFileName)" -FileType "$extNoDot" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
-                }
-                catch{
-                    Write-Log "ERROR: Could not update installation script - $_"
-                    Write-TrackedError "Could not update installation script - $_"
-                }
-
-				# Pack and Push the Chocolatey package to ProGet feed
-                Write-Log "Pack and Push the Chocolatey package to ProGet feed"
-                Write-Host "    Pack and Push the Chocolatey package to ProGet feed"
-                try{
-				    $nupkgPath = Publish-ChocoPackageToProGet -PackageSourceDir $($localStoragePath) -PushUrl $ProGetChocoPushUrl -Key $ProGetFeedApiKey
-                }
-                catch{
-                    Write-Log "ERROR: Could not pack and push new chocolatey package - $_"
-                    Write-TrackedError "Could not pack push new chocolatey package - $_"
-                }
-
-                # Clean temp download directory
-                if($nupkgPath){ 
-                    Remove-File -Path "$($newFile)" 
-                }
-                else{
-                    Write-Log "WARNING: Removing of temp downloaded file '$($newFile)' not executed."
-                    Write-TrackedWarning "Removing of temp downloaded file '$($newFile)' not executed."
-                }
-
-                Write-Host "  === Task Summary ==="
-                Write-Log "=== Task Summary ==="
-                if($dwnFile -eq 1){
-                    Write-Host -ForegroundColor Green "    New Software provided successfully"
-                    Write-Log "New Software provided successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    New Software providing failed"
-                    Write-Log "New Software providing failed"
-                }
-                if($pubAssetFile -eq 1){
-                    Write-Host -ForegroundColor Green "    New File published successfully in ProGet Assets"
-                    Write-Log "New File published successfully in ProGet Assets"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    New File publish failed in ProGet Assets"
-                    Write-Log "New File publish failed in ProGet Assets"
-                }
-                if($updNuspec -eq 1){
-                    Write-Host -ForegroundColor Green "    Chocolatey 'nuspec' file updated successfully"
-                    Write-Log "Chocolatey 'nuspec' file updated successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey 'nuspec' file update failed"
-                    Write-Log "Chocolatey 'nuspec' file update failed"
-                }
-                if($updScript -eq 1){
-                    Write-Host -ForegroundColor Green "    Chocolatey 'install script' file updated successfully"
-                    Write-Log "Chocolatey 'install script' file updated successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey 'install script' file update failed"
-                    Write-Log "Chocolatey 'install script' file update failed"
-                }
-                if($nupkgPath){
-                    Write-Host -ForegroundColor Green "    Chocolatey package created and pushed successfully"
-                    Write-Log "Chocolatey package created and pushed successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey package creation and push failed"
-                    Write-Log "Chocolatey package creation and push failed"
-                }
-                
-            }
-            
-        }
-        else{
-            Write-TrackedError "No Installer found. Please download the latest installer for '$Publisher $Softwarename' to '$downloadPath'."
-            Write-Log "ERROR: No Installer found. Please download the latest installer for '$Publisher $Softwarename' to '$downloadPath'."
-        }
-
-    }
-    elseif ($updateOption -eq "WEB") {
-
-        # Get existing file
-        # Find local installer and current version
-        # Escape software name for use in regex
-        $escapedSoftwareName = [regex]::Escape($Softwarename)
-        
-        Write-Log "Find installer matching Arch and PreferredExtension"
-        Write-Log "Get existing installer version for $Softwarename | $escapedSoftwareName"
-        #Write-Log "Looking for installer in '$($localStoragePath)'"
-        Write-Log "Looking for installer in '$($ProGetAssetFolder)'"
-		Write-Host "    Get existing installer version for $Softwarename"
-        #Write-Host "    Looking for installer in '$($localStoragePath)'"
-		Write-Host "    Looking for installer in '$($ProGetAssetFolder)'"
-
-        
-
-        try{
-			$existingInstaller = Get-ExistingInstallerFromProGetAssets `
-				-AssetFolderPath $ProGetAssetFolder `
-				-SoftwareName $Softwarename `
-				-Arch $software.Arch `
-				-Extension $ext
-		}
-		catch{
-			Write-TrackedError "Could not get local installer in '$($ProGetAssetFolder)' - $_"
-			Write-Log "ERROR: Could not get local installer in '$($ProGetAssetFolder)' - $_"
-		}
-
-
-        # Get download URL
-        $downloadUrl = $apiUrl
-        if (-not $downloadUrl) {
-            Write-Log "ERROR: Could not resolve download URL for $($Softwarename)"
-            Write-TrackedError "Could not resolve download URL for $($Softwarename)"
-            continue
-        }
-
-        # Resolve Filename from Web Link
-        $DowbloadInfo = Resolve-DownloadInfo -Url $downloadUrl -SoftwareName $Softwarename -PreferredExtension $ext
-        
-        # Start Download
-        if($downloadFilename){
-            $downloadFilename = $DowbloadInfo.FileName
-            $installerUrl = $DowbloadInfo.DownloadUrl
-
-            Write-Log "Resolved filename for web download: $downloadFilename"
-            Write-Host -ForegroundColor Magenta "    Resolved filename for web download: $downloadFilename"
-
-            $downloadedFilePath = "$($downloadPath)\$($downloadFilename)"
-
-            Write-Log "Downloading to: $downloadedFilePath"
-            Write-Host "    Downloading file to: $downloadedFilePath"
-            try {
-                Start-DownloadInstallerFile -Url $installerUrl  -DestinationPath $downloadedFilePath
-                Write-Log "Downloaded successfully"
-                $dwnFile = 1
-            } catch {
-                Write-TrackedError "Download failed - $_"
-                Write-Log "ERROR: Download failed - $_"
-                $dwnFile = 0
-                continue
-            }
-        }
-        
-
-        # Get downloaded file in temp directory based on parameters like publisher and name
-        Write-Log "Attempt to find downloaded installer in temporary directory"
-        
-        try{
-            
-            $downloadedInstaller = Get-ChildItem -Path $downloadPath -Filter "*$($ext)" | Where-Object {
-                $version = $_.VersionInfo
-                $version.Product -like "*$($software.Publisher)*" -or $version.FileDescription -like "*$($software.Publisher)*"
-            } | Select-Object -First 1
-
-            # Use Fallback if there is no Verison Info available
-            if(-not $downloadedInstaller){
-                $downloadedInstaller = Get-ChildItem -Path $downloadPath -Filter "*$($ext)" | Where-Object {
-                    $_.Name -like "*$($software.Publisher)*" -or $_.Name -like "*$($software.SoftwareName)*"
-                } | select-Object -First 1
-            }
-            
-
-        }
-        catch {
-            Write-TrackedWarning "Could not find any downloaded file that matched in '$($downloadPath)' - $_"
-            Write-Log "WARNING: Could not find any downloaded file that matched in '$($downloadPath)' - $_"
-        }
-
-        # If found downloaded file, rename it to final contructed filename
-        # Construct final file name: SWName_SubName1_Arch_Version.Extension
-        if($downloadedInstaller){
-            Write-Host "    Downloaded installer '$($downloadedInstaller.BaseName)' found."
-            Write-Log "Construct final filename: Name_Arch_Version.Extension"
-            Write-Log "Downloaded filename: $($downloadedInstaller.BaseName)"
-            $dwnFileName = $downloadedInstaller.BaseName
-            $dwnVersionInfo = $downloadedInstaller.VersionInfo
-            $downloadedFile = $($downloadedInstaller.FullName)
-
-            if($dwnFileName -match "\d+(\.\d+){1,3}") {
-                $latestVersion = $Matches[0]
-            }
-            else{
-                $latestVersion = $dwnVersionInfo.FileVersion
-            }
-
-            
-            if($subName1 -ne "-"){
-                $Softwarename = "$($Softwarename)_$($subName1)"
-            }
-            if($subName2 -ne "-"){
-                $Softwarename = "$($Softwarename)_$($subName2)"
-            }
-
-            $finalFileName = "$($Softwarename)_$($software.Arch)_$($latestVersion)$($ext)"
-            Write-Log "Final filename: $finalFileName"
-
-            # Copy downloaded file with new name
-            Write-Log "Rename downloaded file to '$($finalFileName)'"
-            Write-Host "    Rename downloaded file to '$($finalFileName)'"
-			if($($downloadedInstaller.FullName) -eq "$($downloadPath)\$($finalFileName)"){
-				Write-Log "File already exists. Skipping rename task"
-				Write-Host -ForegroundColor Magenta "    File already exists. Skipping rename task"
-			}
-			else{
-				try{
-					Copy-Item -Path $($downloadedInstaller.FullName) -Destination "$($downloadPath)\$($finalFileName)" -Force | Out-Null
-					Write-Log "Copied new version to '$($downloadPath)\$($finalFileName)'"
-				} catch {
-					Write-Log "ERROR: Failed to copy '$($downloadPath)\$($finalFileName)' - $_"
-					Write-TrackedError "Failed to copy '$($downloadPath)\$($finalFileName)' - $_"
-				}
-			}
-            
-            # Compare versions			
-			if ($null -eq $existingInstaller) {
-				Write-TrackedWarning "No existing installer found in ProGet Assets for $Softwarename ($($software.Arch)$ext)"
-				Write-Log "WARNING: No existing installer found in ProGet Assets for $Softwarename ($($software.Arch)$ext)"
-			}
-			else{
-				Write-Log "Current version: $($existingInstaller.Name)"
-				Write-Log "Available version: $($finalFileName)"
-				Write-Host "    Current version:      $($existingInstaller.Name)"
-				Write-Host "    Available version:    $($finalFileName)"
-			}
-            
-
-            if($($existingInstaller.Name) -eq $finalFileName){
-                Write-Log "Local version for $Softwarename already up to date. Skipping."
-                Write-Host -ForegroundColor Magenta "    Local version for $Softwarename already up to date. Skipping."
-                $shouldUpdate = $false
-            }
-            else{
-                Write-Log "New version for $Softwarename available."
-                Write-Host -ForegroundColor Green "    New version for $Softwarename available."
-                $shouldUpdate = $true
-            }
-
-            if($shouldUpdate) {
-                $newFile = Join-Path $downloadPath $finalFileName
-                #$currentLocalFile = "$($localStoragePath)\tools\$($existingInstaller.Name)"
-				$currentLocalFile = Join-Path "$($localStoragePath)\tools\" "$($existingInstaller.Name)"
-
-				# Clean old installer file in Chocolatey Package Directory
-                if($($existingInstaller.Name)){
-                    Write-Log "Removing old installer file"
-                    Write-Host "    Removing old installer file"
-                    if(Test-Path -path "$($currentLocalFile)"){
-                        
-                        Remove-File -Path "$($currentLocalFile)"
-                    }
-                    else{
-                        Write-TrackedWarning "File '$($currentLocalFile)' not found - $_"
-                        Write-Log "WARNING: File '$($currentLocalFile)' not found - $_"
-                    }
-                }
-				
-				# Copy File into Chocolatey Package Directory
-                Write-Log "Copy new installer file into choclatey package directory"
-                Write-Host "    Copy new installer file into choclatey package directory"
-                try{
-                    Copy-File -Source "$($newFile)" -Dest "$($localStoragePath)\tools"
-                }
-                catch{
-                    Write-TrackedWarning "Directory '$($localStoragePath)\tools' not found - $_"
-                    Write-Log "WARNING: Directory '$($localStoragePath)\tools' not found - $_"
-                }
-				
-                Write-Log "=== Start File Upload Task ==="
-                Write-Log "Uploading to ProGet Assets"
-                Write-Host "  === Start File Upload Task ==="
-                Write-Host "    Uploading to ProGet Assets"
-				try{
-					$pubAssetFile = Publish-ProGetAssetFile -LocalFilePath "$($newFile)" -AssetFolder "$($ProGetAssetFolder)" -AssetFileName "$($finalFileName)" -Key "$ProGetAssetApiKey" -Method POST
-				}
-				catch{
-                    Write-Log "ERROR: Upload not successfull - $_"
-                    Write-TrackedError "Upload not successfull - $_"
-				}
-				
-				# Fetch SHA256 from metadata
-                Write-Log "=== Start Chocolatey Package Task ==="
-                Write-Log "Fetching SH256 hash from new file"
-                Write-Host "  === Start Chocolatey Package Task ==="
-                Write-Host "    Fetching SH256 hash from new file"
-                try{
-                    $newAssetFileSHA256 = Get-ProGetAssetSha256 -FolderPath "$($ProGetAssetFolder)" -FileName "$($finalFileName)" -Key "$ProGetAssetApiKey"
-                }
-                catch{
-                    Write-Log "ERROR: Could not fetch SHA256 information from new file - $_"
-                    Write-TrackedError "Could not fetch SHA256 information from new file - $_"
-                }
-
-				# Update Chocolatey package
-                Write-Log "Update Chocolatey package"
-                Write-Host "    Update Chocolatey package"
-				# You should store each package source in a stable folder: E:\ChocoSrc\<PackageId>\
-                $packageId = "$($Softwarename)" 
-                #$pkgDir    = Join-Path $ChocoPackageSourceRoot $packageId
-                $nuspec    = Join-Path $($localStoragePath) "$packageId.nuspec"
-                $checksums = Join-Path $($localStoragePath) "tools\checksums.json"
-                
-                Write-Log "Package Information: ID='$($packageId)' DIR='$($localStoragePath)' Nuspec='$($nuspec)' Checksum='$($checksums)' PushURL='$($ProGetChocoPushUrl)'"
-                Write-Host "    PackageID:            $packageId"
-                Write-Host "    Package Directory:    $($localStoragePath)"
-                Write-Host "    Nuspec File:          $nuspec"
-                Write-Host "    Checksum File:        $checksums"
-                Write-Host "    Push URL:             $ProGetChocoPushUrl"
-
-                if (-not (Test-Path $($localStoragePath))) { 
-                    Write-Log "ERROR: Chocolatey package source folder not found: $($localStoragePath) - $_"
-                    Write-TrackedError "Chocolatey package source folder not found: $($localStoragePath) - $_" 
-                }
-                if (-not (Test-Path $nuspec)) { 
-                    Write-Log "ERROR: Nuspec not found: $nuspec - $_"
-                    Write-TrackedError "Nuspec not found: $nuspec - $_" 
-                }
-                if (-not (Test-Path $checksums)) { 
-                    Write-Log "WARNING: checksums.json not found: $checksums - Creating it..."
-                    Write-TrackedWarning "checksums.json not found: $checksums - Creating it..." 
-                    try{
-						
-                        New-Item -ItemType File -Path "$checksums" | Out-Null
-
-                        @"
-{
-  "x64": "",
-  "x86": ""
-}
-"@ | Set-Content -Path $checksums -Encoding UTF8
-
-                    }
-                    catch{
-                        Write-Log "ERROR: Checksum file could not be created - $_"
-                        Write-TrackedError "Checksum file could not be created - $_" 
-                    }
-                }
-
-                Write-Log "Set '$nuspec' to new Version to: $latestVersion"
-                Write-Host "    Set '$nuspec' to new Version to: $latestVersion"
-                try{
-                    $updNuspec = Set-NuspecVersion  -NuspecPath "$nuspec" -NewVersion "$latestVersion"
-                }
-                catch{
-                    Write-Log "ERROR: Could not set chocolatey nuspec version - $_"
-                    Write-TrackedError "Could not set chocolatey nuspec version - $_"
-                }
-
-                Write-Log "Set checksum file: $checksums"
-                Write-Host "    Set checksum file: $checksums"
-                try{
-                    Set-ChecksumsJson  -ChecksumsPath "$checksums" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
-                }
-                catch{
-                    Write-Log "ERROR: Could not set checksum file - $_"
-                    Write-TrackedError "Could not set checksum file - $_"
-                }
-
-                # Adapt Chocolatey Install PowerShell Script "tools\chocolateyinstall.ps1"
-                Write-Log "Update Installation script"
-                Write-Host "    Update Installation script"
-
-                $extNoDot = $ext.TrimStart('.').ToLower()
-                
-                try{
-                    $updScript = Update-ChocoInstallationScript -ToolsDir "$($localStoragePath)\tools" -ProGetBaseUrl "$($ProGetBaseUrl)" -ProGetAssetDir "$($ProGetAssetDir)" -AssetFolderPath "$($ProGetAssetFolder)" -InstallerFileName "$($finalFileName)" -FileType "$extNoDot" -Arch "$($software.Arch)" -Sha "$newAssetFileSHA256"
-                }
-                catch{
-                    Write-Log "ERROR: Could not update installation script - $_"
-                    Write-TrackedError "Could not update installation script - $_"
-                }
-
-				# Pack and Push the Chocolatey package to ProGet feed
-                Write-Log "Pack and Push the Chocolatey package to ProGet feed"
-                Write-Host "    Pack and Push the Chocolatey package to ProGet feed"
-                try{
-				    $nupkgPath = Publish-ChocoPackageToProGet -PackageSourceDir $($localStoragePath) -PushUrl $ProGetChocoPushUrl -Key $ProGetFeedApiKey
-                }
-                catch{
-                    Write-Log "ERROR: Could not pack and push new chocolatey package - $_"
-                    Write-TrackedError "Could not pack push new chocolatey package - $_"
-                }
-
-                # Clean temp download directory
-                if($nupkgPath){ 
-                    Remove-File -Path "$($newFile)" 
-                }
-                else{
-                    Write-Log "WARNING: Removing of temp downloaded file '$($newFile)' not executed."
-                    Write-TrackedWarning "Removing of temp downloaded file '$($newFile)' not executed."
-                }
-
-                Write-Host "  === Task Summary ==="
-                Write-Log "=== Task Summary ==="
-                if($dwnFile -eq 1){
-                    Write-Host -ForegroundColor Green "    New Software provided successfully"
-                    Write-Log "New Software provided successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    New Software providing failed"
-                    Write-Log "New Software providing failed"
-                }
-                if($pubAssetFile -eq 1){
-                    Write-Host -ForegroundColor Green "    New File published successfully in ProGet Assets"
-                    Write-Log "New File published successfully in ProGet Assets"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    New File publish failed in ProGet Assets"
-                    Write-Log "New File publish failed in ProGet Assets"
-                }
-                if($updNuspec -eq 1){
-                    Write-Host -ForegroundColor Green "    Chocolatey 'nuspec' file updated successfully"
-                    Write-Log "Chocolatey 'nuspec' file updated successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey 'nuspec' file update failed"
-                    Write-Log "Chocolatey 'nuspec' file update failed"
-                }
-                if($updScript -eq 1){
-                    Write-Host -ForegroundColor Green "    Chocolatey 'install script' file updated successfully"
-                    Write-Log "Chocolatey 'install script' file updated successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey 'install script' file update failed"
-                    Write-Log "Chocolatey 'install script' file update failed"
-                }
-                if($nupkgPath){
-                    Write-Host -ForegroundColor Green "    Chocolatey package created and pushed successfully"
-                    Write-Log "Chocolatey package created and pushed successfully"
-                }
-                else{
-                    Write-Host -ForegroundColor Red "    Chocolatey package creation and push failed"
-                    Write-Log "Chocolatey package creation and push failed"
-                }
-                
-            }
-            
-        }
-        else{
-            Write-TrackedError "No Installer found. Please download the latest installer for '$Publisher $Softwarename' to '$downloadPath'."
-            Write-Log "ERROR: No Installer found. Please download the latest installer for '$Publisher $Softwarename' to '$downloadPath'."
-        }
-
-
-    }
-	else{
-        Write-Log "WARNING: No download option available."
-        Write-TrackedWarning "No download option available."
-    }
-#>
 }
 Write-Log "=== Finished progress... ==="
 $SoftwareList = @($SoftwareList)
