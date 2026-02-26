@@ -1213,14 +1213,14 @@ function Publish-ProGetAssetFile {
         [ValidateSet('POST','PUT','PATCH')] [string] $Method = 'POST'
     )
 
-    $uri = "$ProGetBaseUrl/endpoints/$ProGetAssetDir/content/$AssetFolder/$AssetFileName"
+    $uri = "$($ProGetBaseUrl)/endpoints/$($ProGetAssetDir)/content/$($AssetFolder)/$($AssetFileName)"
 
     $headers = @{
         "X-ApiKey"     = "$Key"
-        "Content-Type" = "application/octet-stream"
+        #"Content-Type" = "application/octet-stream"
     }
 
-    $bytes = [System.IO.File]::ReadAllBytes($LocalFilePath)
+    #$bytes = [System.IO.File]::ReadAllBytes($LocalFilePath)
 
     Write-Log "Start upload to: $uri"
     Write-Host "    Start upload to: $uri"
@@ -1229,7 +1229,7 @@ function Publish-ProGetAssetFile {
         #Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
 
         # Stream file directly from disk (supports >2GB)
-        Invoke-WebRequest -Uri $uri -Method $Method -Headers $headers -InFile $LocalFilePath -UseBasicParsing -ErrorAction Stop | Out-Null
+        Invoke-WebRequest -Uri $uri -Method $Method -Headers $headers -ContentType "application/octet-stream" -InFile $LocalFilePath -UseBasicParsing -ErrorAction Stop | Out-Null
     }
     catch{
         Write-TrackedError "Upload failed: $($_.Exception.Message)"
