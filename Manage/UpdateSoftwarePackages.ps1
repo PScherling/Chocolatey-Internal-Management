@@ -11,7 +11,7 @@
 	- **WEB Mode:** Downloads installers directly from vendor websites using static links defined in a CSV file.
 	- **LOCAL Mode:** Imports pre-downloaded installers from a designated local directory for manual updates or offline maintenance.
 	
-	The script reads from a structured CSV file (`SoftwareList.csv`) defining each software package’s publisher, name, architecture, update method, and file preferences.  
+	The script reads from a structured CSV file (`SoftwareList.csv`) defining each software package's publisher, name, architecture, update method, and file preferences.  
 	It automatically detects changes, replaces old installers, logs all actions, and provides error and warning summaries.
 	
 	Features:
@@ -58,7 +58,7 @@
 .PARAMETER Force
     To force a package update, even if there is now new version available. Caution! Use this only for testing scenarios or you will poison your nuspec and asset.
 
-    
+
 .LINK
 	https://github.com/microsoft/winget-pkgs  
 	https://learn.microsoft.com/en-us/windows/package-manager/winget/  
@@ -72,7 +72,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-02-24
+          Modified: 2026-02-26
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -113,17 +113,28 @@
                                                         - true: always prompt for version (your chosen LOCAL behavior)
                                                         - false/empty: allow auto-detection if you ever want it
 
-                                                This lets me keep the current UX (“run API only / WEB only / LOCAL only”) while still adding clean source providers.
+                                                This lets me keep the current UX ("run API only / WEB only / LOCAL only") while still adding clean source providers.
 
                                                  Example:
-                                                 Publisher  | SoftwareName | SubName1 | SubName2 | PreferredExtension | Arch | UpdateOption | SourceType    | SourceRef                                                  | AssetPattern  | ManualVersionRequired | Notes
-                                                 7zip       | 7zip         |          |          | .msi               | x64  | API          | Winget        | 7zip.7zip                                                  |               | false                 |
-                                                 Chocolatey | ChocolateyGUI|          |          | .msi               | x64  | API          | GitHubRelease | chocolatey/ChocolateyGUI                                   | .*\.msi$      | false                 |
-                                                 VMware     | VMwareTools  |          |          | .exe               | x64  | WEB          | WebDirectory  | https://packages.vmware.com/tools/esx/latest/windows/x64/  | .*\.exe$      | false                 |
-                                                 Chocolatey | Chocolatey   |          |          | .nupkg             | x64  | WEB          | DirectUrl     | https://community.chocolatey.org/api/v2/package/chocolatey |               | false                 |
-                                                 AMD        | Adrenalin    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | false                 | 
-                                                 nVidia     | QuadroRTX    |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | true                  | 
+                                                 Publisher  | SoftwareName  | SubName1 | SubName2 | PreferredExtension | Arch | UpdateOption | SourceType    | SourceRef                                                  | AssetPattern  | ManualVersionRequired | Notes
+                                                 7zip       | 7zip          |          |          | .msi               | x64  | API          | Winget        | 7zip.7zip                                                  |               | false                 |
+                                                 Chocolatey | ChocolateyGUI |          |          | .msi               | x64  | API          | GitHubRelease | chocolatey/ChocolateyGUI                                   | .*x64.*\.msi$ | false                 |
+                                                 VMware     | VMwareTools   |          |          | .exe               | x64  | WEB          | WebDirectory  | https://packages.vmware.com/tools/esx/latest/windows/x64/  | .*\.exe$      | false                 |
+                                                 Chocolatey | Chocolatey    |          |          | .nupkg             | x64  | WEB          | DirectUrl     | https://community.chocolatey.org/api/v2/package/chocolatey |               | false                 |
+                                                 AMD        | Adrenalin     |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | false                 | 
+                                                 nVidia     | QuadroRTX     |          |          | .exe               | x64  | LOCAL        | Local         |                                                            |               | true                  | 
           
+          Version - 0.1.2 - (2026-02-25) - Special Handling for MS Office Packages since 2019 and onward, they need CDN/ODT approaches
+                                            - Adding new SourceType 'OfficeCDN'
+                                            - CSV Entry Example:
+                                                Publisher  | SoftwareName   | SubName1 | SubName2 | PreferredExtension | Arch | UpdateOption | SourceType    | SourceRef                                                  | AssetPattern  | ManualVersionRequired | Notes
+                                                Microsoft  | OfficeLTSC2024 | ProPlus  |          | .exe               | x64  | LOCAL        | OfficeCdn     | Microsoft.Office.LTSC.2021.ProPlus                         |               | true                  |
+                                                Microsoft  | OfficeLTSC2024 | Standard |          | .exe               | x64  | LOCAL        | OfficeCdn     | Microsoft.Office.LTSC.2021.Standard                        |               | true                  |
+                                            - New Function "Resolve-IntentFromOfficeCdn"
+
+          Version - 0.1.3 - (2026-02-26) - New Functions to compare available version with current version. Approach is to use a "version.json" like we do with the checksums (Maybe a good idea to generalize this approach for all software packages in the future)
+                                            - Get-OfficeVersion -> Get current office version from "version.json" if present from the local package directory
+                                            - Set-OfficeVersion -> Sets new Office Version in 'version.json'
 
           TODO:
 
@@ -186,6 +197,11 @@ if (Get-Module -ListAvailable -Name PSReadLine) {
 
 Clear-Host
 
+
+
+
+
+
 ###
 ### Config
 ###
@@ -195,14 +211,47 @@ $filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $BaseDir						= "E:\ChocoManage"
 $logDir							= "$($BaseDir)\Logs\UpdateSoftwarePackages"
 $logPath 						= Join-Path -Path "$($logDir)" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
-#$GitToken 						= $GitToken
 $userInput 					    = ""
 $baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
 $baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
 $selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
 $csvPath 						= Join-Path -Path "$($BaseDir)" -ChildPath "SofwareList.csv"
-$downloadPath 					= "$($BaseDir)\temp\Downloads"     # still needed?
+$downloadPath 					= "$($BaseDir)\temp\Downloads"
 
+# Mapping known InstallerType values to extensions
+$installerTypeToExtension = @{
+    exe     = "exe"
+    msi     = "msi"
+    msu     = "msu"
+    msix    = "msix"
+    appx    = "appx"
+    appxbundle  = "appxbundle"
+    msixbundle  = "msixbundle"
+    nullsoft = "exe"
+    inno    = "exe"
+    wix     = "msi"
+    burn    = "exe"
+    zip     = "zip"
+}
+
+# Mapping known Architecture values
+$installerArchType = @{
+    x86     = "x86"
+    x64     = "x64"
+}
+
+
+# ProGet Environment
+$ProGetChocoPushUrl   			= "$($ProGetBaseUrl)/nuget/$($ProGetChocoFeedName)"  # works with choco push
+$newAssetFileSHA256             = ""
+
+
+
+
+
+###
+### Creating needed directories
+###
 if (-not (Test-Path $logDir)) {
     Write-Host "Log Directory not found. Creating '$($logDir)'"
     try{
@@ -232,37 +281,14 @@ if (-not (Test-Path $downloadPath)) {
     }
 }
 
-# Mapping known InstallerType values to extensions
-$installerTypeToExtension = @{
-    exe     = "exe"
-    msi     = "msi"
-    msu     = "msu"
-    msix    = "msix"
-    appx    = "appx"
-    appxbundle  = "appxbundle"
-    msixbundle  = "msixbundle"
-    nullsoft = "exe"
-    inno    = "exe"
-    wix     = "msi"
-    burn    = "exe"
-    zip     = "zip"
-}
-
-# Mapping known Architecture values
-$installerArchType = @{
-    x86     = "x86"
-    x64     = "x64"
-}
-
-
-# ProGet Environment
-$ProGetChocoPushUrl   			= "$ProGetBaseUrl/nuget/$ProGetChocoFeedName"  # works with choco push
-$newAssetFileSHA256             = ""
 
 
 
 
-# Logging function
+
+###
+### Logging
+###
 function Write-Log {
     param([string]$msg)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -283,6 +309,13 @@ function Write-TrackedError {
     $global:ErrorCount++
     Write-Host -ForegroundColor Red $Message
 }
+
+
+
+
+###
+### Base Functions
+###
 
 # CSV import normalization
 function New-SoftwareSpec {
@@ -320,6 +353,7 @@ function Resolve-LatestReleaseIntent {
         'WebDirectory'  { return Resolve-IntentFromWebDirectory -Software $Software -Paths $Paths }
         'DirectUrl'     { return Resolve-IntentFromDirectUrl -Software $Software -Paths $Paths }
         'Local'         { return Resolve-IntentFromLocal -Software $Software -Paths $Paths -DownloadPath $DownloadPath }
+        'OfficeCdn'     { return Resolve-IntentFromOfficeCdn -Software $Software -Paths $Paths -DownloadPath $DownloadPath }
         default         { throw "Unknown SourceType '$($Software.SourceType)' for $($Software.Publisher)/$($Software.SoftwareName)" }
     }
 
@@ -466,6 +500,94 @@ function Resolve-IntentFromLocal {
     }
 }
 
+# MS OfficeCdn Provider
+function Resolve-IntentFromOfficeCdn {
+    param(
+        [Parameter(Mandatory)] $Software,
+        [Parameter(Mandatory)] $Paths,
+        [Parameter(Mandatory)] [string] $DownloadPath
+    )
+
+    $officeKey = "$($Software.SoftwareName)$($Software.SubName1)"
+
+    $scriptPath = Join-Path "$($BaseDir)" "UpdateMSOffice.ps1"
+    if (-not (Test-Path $scriptPath)) {
+        Write-TrackedError "OfficeCdn: Script for updating MS Office Packages not found."
+        Write-Log "ERROR: Script 'UpdateMSOffice.ps1' not found - $_"
+        return $null
+    }
+    else{
+        Write-Log "OfficeCdn: Calling '$($scriptPath)' for key '$($officeKey)'"
+        Write-Host "    OfficeCdn: Calling '$($scriptPath)' for key '$($officeKey)'"
+
+        # Forward WhatIf if your main script supports it
+        if ($WhatIfPublish) {
+            Write-Log "WHATIFPUBLISH Enabled -> Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject -WhatIf"
+            Write-Host -ForegroundColor Yellow "    WHATIFPUBLISH Enabled -> Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject -WhatIf"
+            $result = & $scriptPath -OfficeKey $officeKey -BaseDir $BaseDir -RunNotStandalone -ReturnObject -WhatIf
+        }
+        else{
+            Write-Log "Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject"
+            Write-Host -ForegroundColor Magenta "    Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject"
+            $result = & $scriptPath -OfficeKey $officeKey -BaseDir $BaseDir -RunNotStandalone -ReturnObject
+        }
+
+        <# DEBUG 
+        if ($result) {
+            Write-Host "DEBUG result type: $($result.GetType().FullName)" -ForegroundColor Magenta
+            $result | Format-List * | Out-String | Write-Host
+        }
+        DEBUG #>
+        
+        if (-not $result ) {
+            Write-TrackedError "OfficeCdn: Failed return object for $officeKey"
+            Write-Log "ERROR: Failed return object for $officeKey"
+            return $null
+        }
+        elseif (-not $result.Success) {
+            Write-TrackedError "OfficeCdn: Failed to refresh Office source for $officeKey"
+            Write-Log "ERROR: Failed to refresh Office source for $officeKey"
+            return $null
+        }
+        elseif (-not $result.WhatIf -and -not (Test-Path $result.PackageFile)) {
+            Write-TrackedError "OfficeCdn: Package file not found: '$($result.PackageFile)'"
+            Write-Log "ERROR: Package file not found: '$($result.PackageFile)'"
+            return $null
+        }
+
+        # If UpdateMSOffice didn't create a zip, create it here from the known folder layout
+        <#
+        Need to create a function"New-OfficePackageZip" like in "UpdateMSOffice.ps1"
+        if (-not $result.PackageFile) {
+            Write-Log "OfficeCDN: Creating package file '$($result.PackageFile)'"
+            Write-Host -ForegroundColor Magenta "    OfficeCDN: Creating package file '$($result.PackageFile)'"
+
+            $edition = $Software.SubName1  # ProPlus / Standard
+            $officeName = $Software.SoftwareName # OfficeLTSC2021, OfficeLTSC2024
+            $version = $result.Version
+            $zipName = "{0}_{1}_x64_{2}.zip" -f $officeName, $edition, $version
+            $zipPath = Join-Path $DownloadPath $zipName
+
+            $zipPath = New-OfficePackageZip -ItemPath $result.SourceFolder -OfficeName $officeName -Edition $edition -Version $version -DownloadPath $DownloadPath
+            $result | Add-Member -NotePropertyName PackageFile -NotePropertyValue $zipPath -Force
+            $result | Add-Member -NotePropertyName PackageFileName -NotePropertyValue ([IO.Path]::GetFileName($zipPath)) -Force
+        }
+        #>
+
+        return [pscustomobject]@{
+            SourceType      = 'OfficeCDN'
+            Version         = $result.Version
+            InstallerUrl    = $null
+            FileName        = $result.PackageFileName
+            Extension       = '.zip'
+            Sha256          = $null
+            Nested          = $null
+            LocalPickedFile = $result.PackageFile
+        }
+    }
+    
+}
+
 # DirectUrl Provider
 function Resolve-IntentFromDirectUrl {
     param(
@@ -479,14 +601,14 @@ function Resolve-IntentFromDirectUrl {
         return $null
     }
 
-    # version may be unknown → you can either parse from filename OR prompt in LOCAL only.
+    # version may be unknown - you can either parse from filename OR prompt in LOCAL only.
     # For DirectUrl, try parse from filename; if absent you can keep 'UNKNOWN' and skip compare OR require version in CSV later.
     $ver = $null
     if ($info.FileName -match '(\d+(\.\d+){1,3})') { 
         $ver = ([version]$matches[1])
     }
     if (-not $ver) { 
-        $ver = "0.0.0.0" # signals "no compare"; we’ll handle later
+        $ver = "0.0.0.0" # signals "no compare"; we'll handle later
     } 
 
     return [pscustomobject]@{
@@ -542,7 +664,7 @@ function Resolve-IntentFromGitHubRelease {
     )
 
     $repo = $Software.SourceRef # owner/repo
-    $apiUrl = "https://api.github.com/repos/$repo/releases/latest"
+    $apiUrl = "https://api.github.com/repos/$($repo)/releases/latest"
 
     $headers = @{ "User-Agent" = "PowerShell" }
     if ($script:GitToken) { $headers.Authorization = "token $script:GitToken" }
@@ -935,6 +1057,7 @@ function Start-DownloadInstallerFile {
     return $download
 }
 
+<#
 function Resolve-WebFilename {
     param (
         [string]$Url,
@@ -950,6 +1073,7 @@ function Resolve-WebFilename {
 
     return $filename
 }
+#>
 
 #function Get-WebFilename {
 function Resolve-DownloadInfo {
@@ -1074,6 +1198,12 @@ function Copy-File {
     }
 }
 
+
+
+
+###
+### ProGet and Chocolatey Functions
+###
 function Publish-ProGetAssetFile {
     param(
         [Parameter(Mandatory)] [string] $LocalFilePath,     # e.g. E:\UpdateScripts\temp\Downloads\NotepadPlusPlus_x64_8.9.exe
@@ -1096,9 +1226,14 @@ function Publish-ProGetAssetFile {
     Write-Host "    Start upload to: $uri"
     $publish = 1
     try{
-        Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
+        #Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
+
+        # Stream file directly from disk (supports >2GB)
+        Invoke-WebRequest -Uri $uri -Method $Method -Headers $headers -InFile $LocalFilePath -UseBasicParsing -ErrorAction Stop | Out-Null
     }
     catch{
+        Write-TrackedError "Upload failed: $($_.Exception.Message)"
+        Write-Log "ERROR: Upload failed: $($_.Exception.Message)"
         $publish = 0
     }
 
@@ -1266,7 +1401,7 @@ function Get-ExistingInstallerFromProGetAssets {
         return $null 
     }
 
-    # 3) Select latest version
+    # Select latest version
     # $latest = $hits | Sort-Object Version -Descending | Select-Object -First 1
     $latest = $hits | Sort-Object VersionCmp -Descending | Select-Object -First 1
 
@@ -1463,7 +1598,7 @@ function Convert-NameForProGetPath {
     return $Name
 }
 
-# Fix “FileName = installer / download” cases
+# Fix "FileName = installer / download" cases
 function Ensure-ResolvedFileName {
     param(
         [Parameter(Mandatory)] $Intent,
@@ -1489,6 +1624,12 @@ function Ensure-ResolvedFileName {
     return $Intent
 }
 
+
+
+
+###
+### Helper Functions
+###
 # HELPER: Normalize semantic version safely
 <#
 function Convert-ToSemVerString {
@@ -1622,7 +1763,54 @@ function Update-ChocolateyPackage {
 
 }
 
-# New unified pipeline
+# HELPER: Get current Office Version
+function Get-OfficeVersion {
+    param(
+        [Parameter(Mandatory)] [string] $VersionFile
+    )
+    
+    
+    if(Test-Path $VersionFile){
+
+        try {            
+            $obj = Get-Content $VersionFile -Raw | ConvertFrom-Json
+            #Write-Host "    Current Office version is: $($obj.version)" -ForegroundColor Magenta
+            #Write-Log "Current Office version is: $($obj.version)"
+            return $obj.version
+        }
+        catch {
+            Write-TrackedWarning "Office version.json read failed for '$($VersionFile)': $_"
+            Write-Log "WARNING: Office version.json read failed for '$($VersionFile)': $_"
+            return $null
+        }
+    }
+    else{
+        Write-TrackedWarning "No version.json file found."
+        Write-Log "WARNING: No version.json file found."
+        return $null
+    }
+}
+
+# HELPER: Set Office Version
+function Set-OfficeVersion {
+    param(
+        [Parameter(Mandatory)] [string] $VersionFile,
+        [Parameter(Mandatory)] [string] $Version
+    )
+    
+    $obj = Get-Content $VersionFile -Raw | ConvertFrom-Json
+    $obj.version = $Version
+    $obj | ConvertTo-Json -Compress | Set-Content $VersionFile -Encoding UTF8
+
+}
+
+
+
+
+
+###
+### Base PipeLine
+###
 function Invoke-EnterprisePackageUpdate {
     param(
         [Parameter(Mandatory)] [pscustomobject] $Software,
@@ -1662,6 +1850,37 @@ function Invoke-EnterprisePackageUpdate {
     }
     # --- parse comparable version separately ---
     $availableVersionCmp = Convert-ToVersionObject -Value $availableVersionRaw
+
+    # --- OfficeCdn versioning ---
+    if ($Intent.SourceType -eq 'OfficeCdn') {
+        $versions = Join-Path $localPkgPath "tools\version.json"
+        if (-not (Test-Path $versions)) {
+            Write-Log "OfficeCdn: No '$versions' file found. Creating one..."
+@"
+{
+  "version": ""
+}
+"@ | Set-Content -Path $versions -Encoding UTF8
+        }
+
+        $currentOfficeVer = Get-OfficeVersion -VersionFile $versions
+        if ($currentOfficeVer) {
+            Write-Host "    Current Office ver:    $currentOfficeVer (version.json)"
+            if (-not $Force -and ([version]$currentOfficeVer -eq $availableVersionCmp)) {
+                Write-Host -ForegroundColor Magenta "    PIPELINE: up-to-date (office json) -> skip"
+                Write-Log "PIPELINE: up-to-date (office json) -> skip"
+                return
+            }
+            else{
+                Set-OfficeVersion -VersionFile $versions -Version $Intent.Version
+                Write-Log "OfficeCdn: New Office version set to: $currentOfficeVer"
+            }
+        }
+        else{
+            Set-OfficeVersion -VersionFile $versions -Version $Intent.Version
+            Write-Log "OfficeCdn: New Office version set to: $currentOfficeVer"
+        }
+    }
 
     # --- determine extension to use for naming ---
     # Prefer the CSV PreferredExtension (enterprise controlled),
@@ -1742,7 +1961,8 @@ function Invoke-EnterprisePackageUpdate {
         # --- acquire installer artifact ---
         $artifactPath = $null
 
-        if ($Intent.SourceType -eq 'Local' -and $Intent.LocalPickedFile) {
+        #if ($Intent.SourceType -eq 'Local' -and $Intent.LocalPickedFile) {
+        if (($Intent.SourceType -eq 'Local' -or $Intent.SourceType -eq 'OfficeCdn') -and $Intent.LocalPickedFile -and (Test-Path $Intent.LocalPickedFile)) {
             # Copy local picked file to deterministic target filename
             try{
                 Copy-Item -Path $Intent.LocalPickedFile -Destination $downloadTarget -Force | Out-Null
@@ -2065,7 +2285,7 @@ function Invoke-EnterprisePackageUpdate {
         Write-Host "  === Pipeline Summary ==="
         Write-Log "=== Pipeline Summary ==="
 
-        $acquireLabel = if ($Intent.SourceType -eq 'Local') { "provided" } else { "downloaded" }
+        $acquireLabel = if ($Intent.SourceType -eq 'Local' -or $Intent.SourceType -eq 'OfficeCdn' ) { "provided" } else { "downloaded" }
         
         if($dwnFile -eq 1){
             Write-Host -ForegroundColor Green "    New Software $acquireLabel successfully"
@@ -2124,7 +2344,7 @@ function Invoke-EnterprisePackageUpdate {
 
 
 ###
-### Start
+### Start of script
 ###
 Write-Log "=== Starting progress... ==="
 Write-Log "Checking PowerShell Module 'powershell-yaml'"
@@ -2177,32 +2397,7 @@ Write-Host -ForegroundColor Cyan "
 Write-Host "-----------------------------------------------------------------------------------"
 Write-Host "              Update Software Packages"
 Write-Host "-----------------------------------------------------------------------------------"
-<#
-Write-Host "
-    Update Otpions
-    1) Update API only software
-    2) Update Local only software
-    3) Update Web only software
-    4) Update All
-    5) Leave
-"
-do {
-    $choice = Read-Host " Choose an Option (1-5)"
-    Write-Log "User Input: $choice"
-    switch ($choice) {
-        1 { $selectedUpdateOption = "API" }
-        2 { $selectedUpdateOption = "LOCAL" }
-        3 { $selectedUpdateOption = "WEB" }
-        4 { $selectedUpdateOption = "ALL" }
-        5 { Exit }
-        default { 
-            Write-Log " Wrong Input."
-            Write-Host "Wrong Input. Please choose an option above." 
-        }
-    }
-    Write-Log "User choice: $($selectedUpdateOption)"
-} while ($choice -notin '1','2','3','4','5')
-#>
+
 $selectedUpdateOption = $UpdateOption
 Write-Log "Update Option selected: $($selectedUpdateOption)"
 if($selectedUpdateOption -eq "ALL"){
@@ -2218,21 +2413,6 @@ if($selectedUpdateOption -eq "ALL"){
     } while($userInput-ne "Y" -and $userInput -ne "N")
 
     if($userInput -eq "Y") {
-        
-		<#
-        $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | ForEach-Object {
-            [pscustomobject]@{
-                Publisher           = $_.Publisher
-                SoftwareName        = $_.SoftwareName
-                SubName1            = $_.SubName1
-                SubName2            = $_.SubName2
-                PreferredExtension  = $_.PreferredExtension
-                Arch                = $_.Arch
-                UpdateOption        = $_.UpdateOption
-                WebLink             = $_.WebLink
-            }
-        }
-        #>
 
         $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | ForEach-Object { New-SoftwareSpec $_ }
 
@@ -2270,23 +2450,6 @@ elseif($selectedUpdateOption -eq "API"){
     Write-Host "              Update Software | Category 'API' only"
     Write-Host "-----------------------------------------------------------------------------------"
 
-    <#
-    $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' |
-        where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
-        ForEach-Object {
-            [pscustomobject]@{
-                Publisher           = $_.Publisher
-                SoftwareName        = $_.SoftwareName
-                SubName1            = $_.SubName1
-                SubName2            = $_.SubName2
-                PreferredExtension  = $_.PreferredExtension
-                Arch                = $_.Arch
-                UpdateOption        = $_.UpdateOption
-                WebLink             = $_.WebLink
-            }
-        }
-    #>
-
     $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | 
         where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
         ForEach-Object { New-SoftwareSpec $_ }
@@ -2319,23 +2482,6 @@ elseif($selectedUpdateOption -eq "WEB"){
     Write-Host "-----------------------------------------------------------------------------------"
     Write-Host "              Update Software | Category 'WEB' only"
     Write-Host "-----------------------------------------------------------------------------------"
-
-    <#
-    $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' |
-        where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
-        ForEach-Object {
-            [pscustomobject]@{
-                Publisher           = $_.Publisher
-                SoftwareName        = $_.SoftwareName
-                SubName1            = $_.SubName1
-                SubName2            = $_.SubName2
-                PreferredExtension  = $_.PreferredExtension
-                Arch                = $_.Arch
-                UpdateOption        = $_.UpdateOption
-                WebLink             = $_.WebLink
-            }
-        }
-    #>
 
     $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | 
         where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
@@ -2373,25 +2519,9 @@ elseif($selectedUpdateOption -eq "LOCAL"){
     } while($userInput-ne "Y" -and $userInput -ne "N")
 	
     if($userInput -eq "Y") {
-        <#
-        $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' |
-            where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
-            ForEach-Object {
-                [pscustomobject]@{
-                    Publisher           = $_.Publisher
-                    SoftwareName        = $_.SoftwareName
-                    SubName1            = $_.SubName1
-                    SubName2            = $_.SubName2
-                    PreferredExtension  = $_.PreferredExtension
-                    Arch                = $_.Arch
-                    UpdateOption        = $_.UpdateOption
-                    WebLink             = $_.WebLink
-                }
-            }
-        #>
 
         $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | 
-            where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
+            where-Object { $_.UpdateOption -eq $selectedUpdateOption -and $_.SourceType -eq 'OfficeCdn' -and $_.SoftwareName -eq "OfficeLTSC2021" } | 
             ForEach-Object { New-SoftwareSpec $_ }
 
         if(-not $ProGetAssetApiKey -or -not $ProGetFeedApiKey){
