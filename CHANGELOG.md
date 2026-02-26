@@ -24,4 +24,4 @@ Version 0.0.19
 | **0.0.16** | 2026-02-18 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Bug-Fixing | Pre-Release |  |  |
 | **0.0.17** | 2026-02-18 | Pre-Release | UpdateSoftwarePaclages.ps1 - Adding security mechanics regarding api-tokens | Pre-Release |  |  |
 | **0.0.18** | 2026-02-18 | Pre-Release | UpdateSoftwarePaclages.ps1 - Release of Major Version 1 | Pre-Release |  |  |
-| **0.0.19** | 2026-02-23 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Update | Pre-Release |  |  |
+| **0.0.19** | 2026-02-26 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Update | Pre-Release |  |  |
