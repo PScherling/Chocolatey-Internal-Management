@@ -136,6 +136,9 @@
                                             - Get-OfficeVersion -> Get current office version from "version.json" if present from the local package directory
                                             - Set-OfficeVersion -> Sets new Office Version in 'version.json'
 
+          Version - 0.1.4 - (2026-03-02) - Struggling with "Publish-ProGetAssetFile"; 
+                                            Invoce-WebRequest etc. not the best option. Fails with Files larger than 2GB. Maybe .Net HTTP Client HAndler the better option?
+
           TODO:
 
 .Requirements
@@ -529,7 +532,7 @@ function Resolve-IntentFromOfficeCdn {
         else{
             Write-Log "Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject"
             Write-Host -ForegroundColor Magenta "    Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject"
-            $result = & $scriptPath -OfficeKey $officeKey -BaseDir $BaseDir -RunNotStandalone -ReturnObject
+            $result = & $scriptPath -OfficeKey $officeKey -BaseDir $BaseDir -RunNotStandalone -ReturnObject -WhatIf
         }
 
         <# DEBUG 
@@ -1188,7 +1191,7 @@ function Copy-File {
     )
 
     Write-Log "Copy new version to '$($Dest)'"
-    Write-Host "    Copy new version to '$($Dest)'"
+    Write-Host "    Copy new version to:  $($Dest)"
     try{
         Copy-Item -Path "$($Source)" -Destination "$($Dest)" -Force
         Write-Log "Copied new version to '$($Dest)'"
@@ -1213,28 +1216,95 @@ function Publish-ProGetAssetFile {
         [ValidateSet('POST','PUT','PATCH')] [string] $Method = 'POST'
     )
 
+    <# DEBUG #>
+    #Write-Host -ForegroundColor Cyan "DEBUG: Publish-ProGetAssetFile function version = STREAM"
+    #Write-Log "DEBUG: Publish-ProGetAssetFile function version = STREAM"
+    <# DEBUG #>
+
     $uri = "$($ProGetBaseUrl)/endpoints/$($ProGetAssetDir)/content/$($AssetFolder)/$($AssetFileName)"
 
-    $headers = @{
-        "X-ApiKey"     = "$Key"
-        #"Content-Type" = "application/octet-stream"
-    }
-
-    #$bytes = [System.IO.File]::ReadAllBytes($LocalFilePath)
+    
 
     Write-Log "Start upload to: $uri"
-    Write-Host "    Start upload to: $uri"
-    $publish = 1
-    try{
-        #Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
+    Write-Host -ForegroundColor Green "    Start upload to:      $uri"
+    
+    $fileSizeGB = [math]::Round((Get-Item $LocalFilePath).Length / 1GB, 2)
+    Write-Host "    Upload file size:     $fileSizeGB GB"
+    Write-Log  "Upload file size: $fileSizeGB GB"
 
-        # Stream file directly from disk (supports >2GB)
-        Invoke-WebRequest -Uri $uri -Method $Method -Headers $headers -ContentType "application/octet-stream" -InFile $LocalFilePath -UseBasicParsing -ErrorAction Stop | Out-Null
+    $publish = 1
+    if($fileSizeGB -lt 2){
+        Write-Host "    Upload mode:          Invoke-WebRequest -InFile"
+        Write-Log  "Upload mode: Invoke-WebRequest -InFile"
+
+        try{
+            $headers = @{
+                "X-ApiKey"     = "$Key"
+                #"Content-Type" = "application/octet-stream"
+            }
+
+            #$bytes = [System.IO.File]::ReadAllBytes($LocalFilePath)
+
+            #Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
+
+            # Stream file directly from disk (supports >2GB)
+            Invoke-WebRequest -Uri $uri -Method $Method -Headers $headers -ContentType "application/octet-stream" -InFile $LocalFilePath -UseBasicParsing -ErrorAction Stop | Out-Null
+        }
+        catch{
+            Write-TrackedError "Upload failed: $($_.Exception.Message)"
+            Write-Log "ERROR: Upload failed: $($_.Exception.Message)"
+            $publish = 0
+        }
     }
-    catch{
-        Write-TrackedError "Upload failed: $($_.Exception.Message)"
-        Write-Log "ERROR: Upload failed: $($_.Exception.Message)"
-        $publish = 0
+    else{
+        Write-Host "    Upload mode:          HttpClient stream"
+        Write-Log  "Upload mode: HttpClient stream"
+
+        $sw = $null
+        $handler = $null
+        $client = $null
+        $fs = $null
+        $content = $null
+        $request = $null
+        $response = $null
+        
+        try{
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            Add-Type -AssemblyName System.Net.Http
+
+            $handler = New-Object System.Net.Http.HttpClientHandler
+            $client  = New-Object System.Net.Http.HttpClient($handler)
+            $client.DefaultRequestHeaders.Add("X-ApiKey", $Key)
+
+            $fs = [System.IO.File]::OpenRead($LocalFilePath)
+            $content = New-Object System.Net.Http.StreamContent($fs)
+            $content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/octet-stream")
+
+            $request = New-Object System.Net.Http.HttpRequestMessage((New-Object System.Net.Http.HttpMethod($Method)), $uri)
+            $request.Content = $content
+
+            $response = $client.SendAsync($request).GetAwaiter().GetResult()
+            $response.EnsureSuccessStatusCode()
+
+            $sw.Stop()
+            Write-Host "    Upload finished in:   $($sw.Elapsed)"
+            Write-Log  "Upload finished in: $($sw.Elapsed)"
+
+        }
+        catch{
+            if ($sw) { $sw.Stop() }
+            Write-TrackedError "Upload failed: $($_.Exception.Message)"
+            Write-Log "ERROR: Upload failed after $($sw.Elapsed): $($_.Exception.Message)"
+            $publish = 0
+        }
+        finally {
+            if ($response) { $response.Dispose() }
+            if ($request)  { $request.Dispose() }
+            if ($content)  { $content.Dispose() }
+            if ($fs)       { $fs.Dispose() }
+            if ($client)   { $client.Dispose() }
+            if ($handler)  { $handler.Dispose() }
+        }
     }
 
     return $publish
@@ -1307,7 +1377,7 @@ function Publish-ChocoPackageToProGet {
     }
 
     Write-Log "Attempting to create new package and push it to ProGet feed"
-    Write-Host "    Attempting to create new package and push it to ProGet feed"
+    Write-Host -ForegroundColor Green "    Attempting to create new package and push it to ProGet feed"
     try {
         choco pack | Out-Null
 
@@ -1804,6 +1874,41 @@ function Set-OfficeVersion {
 
 }
 
+# HELPER: Get-PackageID Full SoftwareName
+function Get-PackageId {
+    param(
+        [Parameter(Mandatory)] $Software
+    )
+
+    $packageId = $Software.SoftwareName
+
+    if (-not [string]::IsNullOrWhiteSpace($Software.SubName1)) {
+        $packageId += $Software.SubName1
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Software.SubName2)) {
+        $packageId += $Software.SubName2
+    }
+
+    return (Convert-NameForProGetPath $packageId)
+}
+
+# HELPER: Get-Software Displayname
+function Get-SoftwareDisplayName {
+    param(
+        [Parameter(Mandatory)] $Software
+    )
+
+    $name = $Software.SoftwareName
+
+    if (-not [string]::IsNullOrWhiteSpace($Software.SubName1)) {
+        $name += $Software.SubName1
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Software.SubName2)) {
+        $name += $Software.SubName2
+    }
+
+    return $name
+}
 
 
 
@@ -1865,7 +1970,7 @@ function Invoke-EnterprisePackageUpdate {
 
         $currentOfficeVer = Get-OfficeVersion -VersionFile $versions
         if ($currentOfficeVer) {
-            Write-Host "    Current Office ver:    $currentOfficeVer (version.json)"
+            Write-Host "    Current Office ver:   $currentOfficeVer (version.json)"
             if (-not $Force -and ([version]$currentOfficeVer -eq $availableVersionCmp)) {
                 Write-Host -ForegroundColor Magenta "    PIPELINE: up-to-date (office json) -> skip"
                 Write-Log "PIPELINE: up-to-date (office json) -> skip"
@@ -2067,7 +2172,8 @@ function Invoke-EnterprisePackageUpdate {
                 Write-Log "ERROR: Could not fetch SHA256 from ProGet for $assetFileName"
             }
             
-            $packageId = Convert-NameForProGetPath $Software.SoftwareName
+            #$packageId = Convert-NameForProGetPath $Software.SoftwareName
+            $packageId = Get-PackageId -Software $Software
             $nuspec    = Join-Path $localPkgPath "$($packageId).nuspec"
             $checksums = Join-Path $localPkgPath "tools\checksums.json"
 
@@ -2128,7 +2234,8 @@ function Invoke-EnterprisePackageUpdate {
                 }
 
                 # 4) Update nuspec/checksums (install script usually comes from extracted tools and should already be correct)
-                $packageId = Convert-NameForProGetPath $Software.SoftwareName
+                #$packageId = Convert-NameForProGetPath $Software.SoftwareName
+                $packageId = Get-PackageId -Software $Software
                 $nuspec    = Join-Path $localPkgPath "$($packageId).nuspec"
                 $checksums = Join-Path $localPkgPath "tools\checksums.json"
 
@@ -2212,6 +2319,11 @@ function Invoke-EnterprisePackageUpdate {
 
             $assetFileName = Split-Path $artifactPath -Leaf
 
+            <# DEBUG #>
+            #Write-Host -ForegroundColor Magenta "DEBUG: entering Publish-ProGetAssetFile"
+            #Write-Log "DEBUG: entering Publish-ProGetAssetFile"
+            <# DEBUG #>
+
             $pubAssetFile = Publish-ProGetAssetFile -LocalFilePath $artifactPath -AssetFolder $proGetFolder -AssetFileName $assetFileName -Key $ProGetAssetApiKey -Method POST
             if (-not $pubAssetFile -or $pubAssetFile -eq 0) {
                 Write-TrackedError "Upload to ProGet Assets failed for $assetFileName"
@@ -2226,7 +2338,8 @@ function Invoke-EnterprisePackageUpdate {
             }
 
             # --- update nuspec/checksums/install script ---
-            $packageId = Convert-NameForProGetPath $Software.SoftwareName
+            #$packageId = Convert-NameForProGetPath $Software.SoftwareName
+            $packageId = Get-PackageId -Software $Software
             $nuspec    = Join-Path $localPkgPath "$($packageId).nuspec"
             $checksums = Join-Path $localPkgPath "tools\checksums.json"
 
@@ -2282,7 +2395,7 @@ function Invoke-EnterprisePackageUpdate {
         }
 
         # --- print summary of actual task ---
-        Write-Host "  === Pipeline Summary ==="
+        Write-Host -ForegroundColor Cyan "  === Pipeline Summary ==="
         Write-Log "=== Pipeline Summary ==="
 
         $acquireLabel = if ($Intent.SourceType -eq 'Local' -or $Intent.SourceType -eq 'OfficeCdn' ) { "provided" } else { "downloaded" }
@@ -2334,8 +2447,9 @@ function Invoke-EnterprisePackageUpdate {
             }
         }
 
-        Write-Host -ForegroundColor Green "    Updated successfully: $($Software.SoftwareName) -> $availableVersionRaw"
-        Write-Log "PIPELINE: success -> $availableVersionRaw"
+        $displayName = Get-SoftwareDisplayName -Software $Software
+        Write-Host -ForegroundColor Green "    Updated successfully: $($displayName) -> $availableVersionRaw"
+        Write-Log "PIPELINE: success $displayName -> $availableVersionRaw"
     }
 }
 
@@ -2521,7 +2635,8 @@ elseif($selectedUpdateOption -eq "LOCAL"){
     if($userInput -eq "Y") {
 
         $SoftwareList = Import-Csv -Path $csvPath -Delimiter ';' | 
-            where-Object { $_.UpdateOption -eq $selectedUpdateOption -and $_.SourceType -eq 'OfficeCdn' -and $_.SoftwareName -eq "OfficeLTSC2021" } | 
+            where-Object { $_.UpdateOption -eq $selectedUpdateOption } | 
+            #where-Object { $_.UpdateOption -eq $selectedUpdateOption -and $_.SourceType -eq 'OfficeCdn' -and $_.SoftwareName -eq "OfficeLTSC2021" -and $_.SubName1 -eq "ProPlus" } | 
             ForEach-Object { New-SoftwareSpec $_ }
 
         if(-not $ProGetAssetApiKey -or -not $ProGetFeedApiKey){
