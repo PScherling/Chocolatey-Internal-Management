@@ -33,7 +33,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-18
-          Modified: 2026-02-26
+          Modified: 2026-03-02
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Path Structure
@@ -83,8 +83,17 @@ $packageZip                     = $null
 if($RunNotStandalone){
     # DEBUG
     #Write-Host -ForegroundColor Magenta "DEBUG: $($BaseDir) | $($logDir) | $($downloadPath)"
-    
-    if($OfficeKey -like "*LTSC*2021*Standard" -or $OfficeKey -like "*LTSC*2021*Std"){
+    if($OfficeKey -like "*2019*Standard" -or $OfficeKey -like "*2019*Std"){
+        $installations = @(
+            @{ Name = "Office 2019 Standard"; Path = "$($downloadPath)\Office2019"; XML = "$($downloadPath)\OfficeLTSC2021\office_19_std.xml" }
+        )
+    }
+    elseif($OfficeKey -like "*2019*ProPlus" -or $OfficeKey -like "*2019*Pro Plus"){
+        $installations = @(
+            @{ Name = "Office 2019 Pro Plus"; Path = "$($downloadPath)\Office2019"; XML = "$($downloadPath)\OfficeLTSC2021\office_19_proplus.xml" }
+        )
+    }
+    elseif($OfficeKey -like "*LTSC*2021*Standard" -or $OfficeKey -like "*LTSC*2021*Std"){
         $installations = @(
             @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; XML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std.xml" }
         )
