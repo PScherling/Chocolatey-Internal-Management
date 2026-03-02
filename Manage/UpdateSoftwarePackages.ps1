@@ -138,6 +138,9 @@
 
           Version - 0.1.4 - (2026-03-02) - Struggling with "Publish-ProGetAssetFile"; 
                                             Invoce-WebRequest etc. not the best option. Fails with Files larger than 2GB. Maybe .Net HTTP Client HAndler the better option?
+											New Helper functions:
+											- Get-SoftwareDisplayName
+											- Get-PackageId
 
           TODO:
 
