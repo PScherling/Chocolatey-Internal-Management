@@ -33,7 +33,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-18
-          Modified: 2026-03-02
+          Modified: 2026-03-03
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Path Structure
@@ -41,6 +41,7 @@
 		  Version - 0.0.4 - (2026-02-25) - Adaption for Chocolatey environments
           Version - 0.0.5 - (2026-02-25) - Refactor to work with 'UpdateSoftwarePackages.ps1'
           Version - 0.0.6 - (2026-02-26) - Minor Bug-Fixes and improve compatibillity with 'UpdateSoftwarePAckages.ps1'
+          Version - 0.0.7 - (2026-03-03) - Changing the way of creating zip archive. (Changing to use 7zip instead of compress-archive)
           
 
           TODO:
@@ -234,7 +235,31 @@ function New-OfficePackageZip {
             Remove-Item $zipPath -Force
         }
 
-        Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zipPath -Force
+        #Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zipPath -Force
+        
+        $sevenZip = "C:\Program Files\7-Zip\7z.exe"
+        if (-not (Test-Path $sevenZip)) {
+            throw "7-Zip not found at '$sevenZip'"
+        }
+
+        $arguments = @(
+            "a"
+            "-tzip"
+            "-mx=5"
+            $zipPath
+            "*"
+        )
+
+        $proc = Start-Process -FilePath $sevenZip `
+                              -ArgumentList $arguments `
+                              -WorkingDirectory $stageRoot `
+                              -Wait `
+                              -PassThru `
+                              -NoNewWindow
+
+        if ($proc.ExitCode -ne 0) {
+            throw "7-Zip failed with exit code $($proc.ExitCode)"
+        }
 
         return $zipPath
     }
