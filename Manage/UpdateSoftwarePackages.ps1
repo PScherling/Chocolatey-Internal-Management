@@ -137,10 +137,12 @@
                                             - Set-OfficeVersion -> Sets new Office Version in 'version.json'
 
           Version - 0.1.4 - (2026-03-02) - Struggling with "Publish-ProGetAssetFile"; 
-                                            Invoce-WebRequest etc. not the best option. Fails with Files larger than 2GB. Maybe .Net HTTP Client HAndler the better option?
+                                            Invoce-WebRequest or Invoce-RestMethod is not the best option. Fails with Files larger than 2GB. Maybe .Net HTTP Client HAndler the better option?
 											New Helper functions:
 											- Get-SoftwareDisplayName
 											- Get-PackageId
+
+          Version - 0.1.5 - (2026-03-03) - Removing "Invoke-WebRequest" or "Invoce-RestMethod" for ProGet Asset Upload in "Publish-ProGetAssetFile" and rely fully on the .Net HTTP Client
 
           TODO:
 
@@ -535,7 +537,7 @@ function Resolve-IntentFromOfficeCdn {
         else{
             Write-Log "Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject"
             Write-Host -ForegroundColor Magenta "    Execution of script 'UpdateMSOffice.ps1' -OfficeKey $($officeKey) -BaseDir $($BaseDir) -RunNotStandalone -ReturnObject"
-            $result = & $scriptPath -OfficeKey $officeKey -BaseDir $BaseDir -RunNotStandalone -ReturnObject -WhatIf
+            $result = & $scriptPath -OfficeKey $officeKey -BaseDir $BaseDir -RunNotStandalone -ReturnObject
         }
 
         <# DEBUG 
@@ -1237,21 +1239,18 @@ function Publish-ProGetAssetFile {
 
     $publish = 1
     if($fileSizeGB -lt 2){
-        Write-Host "    Upload mode:          Invoke-WebRequest -InFile"
-        Write-Log  "Upload mode: Invoke-WebRequest -InFile"
+        Write-Host "    Upload mode:          Invoke-RestMethod"
+        Write-Log  "Upload mode: Invoke-RestMethod"
 
         try{
             $headers = @{
                 "X-ApiKey"     = "$Key"
-                #"Content-Type" = "application/octet-stream"
+                "Content-Type" = "application/octet-stream"
             }
 
-            #$bytes = [System.IO.File]::ReadAllBytes($LocalFilePath)
+            $bytes = [System.IO.File]::ReadAllBytes($LocalFilePath)
 
-            #Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
-
-            # Stream file directly from disk (supports >2GB)
-            Invoke-WebRequest -Uri $uri -Method $Method -Headers $headers -ContentType "application/octet-stream" -InFile $LocalFilePath -UseBasicParsing -ErrorAction Stop | Out-Null
+            Invoke-RestMethod -Uri $uri -Method $Method -Headers $headers -Body $bytes -ErrorAction Stop | Out-Null
         }
         catch{
             Write-TrackedError "Upload failed: $($_.Exception.Message)"
@@ -2108,7 +2107,7 @@ function Invoke-EnterprisePackageUpdate {
             $extractedPath = Join-Path $DownloadPath $leafName
 
             Write-Host -ForegroundColor Magenta "    Nested ZIP detected. Extracting only: $relativePath"
-            Write-Host -ForegroundColor Magenta "    Extract to:            $extractedPath"
+            Write-Host -ForegroundColor Magenta "    Extract to:           $extractedPath"
 
             try {
                 Add-Type -AssemblyName System.IO.Compression.FileSystem
