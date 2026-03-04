@@ -33,7 +33,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-18
-          Modified: 2026-03-03
+          Modified: 2026-03-04
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Path Structure
@@ -42,6 +42,7 @@
           Version - 0.0.5 - (2026-02-25) - Refactor to work with 'UpdateSoftwarePackages.ps1'
           Version - 0.0.6 - (2026-02-26) - Minor Bug-Fixes and improve compatibillity with 'UpdateSoftwarePAckages.ps1'
           Version - 0.0.7 - (2026-03-03) - Changing the way of creating zip archive. (Changing to use 7zip instead of compress-archive)
+          Version - 0.0.8 - (2026-03-04) - Adaption 7-Zip CLI Arguments to silence the console output.
           
 
           TODO:
@@ -246,6 +247,10 @@ function New-OfficePackageZip {
             "a"
             "-tzip"
             "-mx=5"
+            "-bb0"  # lowest log level
+            "-bso0" # suppress standard output
+            "-bse0" # suppress error output
+            "-bsp0" # suppress progress indicator
             $zipPath
             "*"
         )
@@ -257,7 +262,13 @@ function New-OfficePackageZip {
                               -PassThru `
                               -NoNewWindow
 
-        if ($proc.ExitCode -ne 0) {
+        if ($proc.ExitCode -eq 0) {
+            Write-Host -ForegroundColor Green "    Archive created successfully"
+        }
+        elseif($proc.ExitCode -eq 1) {
+            Write-Host -ForegroundColor Yellow "    Warning (Non fatal error): For example, one or more files were locked by some other application, so they were not compressed. Exit code: $($proc.ExitCode)"
+        }
+        elseif ($proc.ExitCode -ne 0 -or $proc.ExitCode -ne 1) {
             throw "7-Zip failed with exit code $($proc.ExitCode)"
         }
 
