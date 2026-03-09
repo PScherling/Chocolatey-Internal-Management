@@ -31,6 +31,6 @@ Version 0.0.28
 | **0.0.23** | 2026-03-03 | Pre-Release | UpdateSoftwarePaclages.ps1 - Removing "Invoke-WebRequest" or "Invoce-RestMethod" for ProGet Asset Upload in "Publish-ProGetAssetFile" and rely fully on the .Net HTTP Client | Pre-Release |  |  |
 | **0.0.24** | 2026-03-03 | Pre-Release | UpdateMSOffice.ps1 - Changing the way of creating zip archive. (Changing to use 7zip instead of compress-archive) | | |  |
 | **0.0.25** | 2026-03-04 | Pre-Release | UpdateMSOffice.ps1 - Adaption 7-Zip CLI Arguments to silence the console output. |  |  |  |
-| **0.0.26** | 2026-03-09 | Pre-Release | launcher.bat - Initial First Attempt |  |  |  |
-| **0.0.27** | 2026-03-09 | Pre-Release | UpdateSoftwarePaclages.ps1 - Optimizing for "launscher.bat" |  |  |  |
-| **0.0.28** | 2026-03-09 | Pre-Release | CreateNewChocoPackage.ps1 - Optimizing for "launscher.bat" |  |  |  |
+| **0.0.26** | 2026-03-09 | Pre-Release | launcher.bat - Finalized functional version 1. |  |  |  |
+| **0.0.27** | 2026-03-09 | Pre-Release | UpdateSoftwarePaclages.ps1 - Optimizing for "launcher.bat" |  |  |  |
+| **0.0.28** | 2026-03-09 | Pre-Release | CreateNewChocoPackage.ps1 - Optimizing for "launcher.bat" |  |  |  |
