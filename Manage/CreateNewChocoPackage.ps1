@@ -61,7 +61,7 @@
 .PARAMETER Protocol
     Protocol used to build ProGet URLs. Valid values: http, https. Default: http
 
-.PARAMETER ProGetSrv
+.PARAMETER ServerFqdn
     ProGet server hostname (or FQDN).
     Example: PSC-SWREPO1
 
