@@ -1,6 +1,6 @@
 # Change Log
 ## Current Release
-Version 0.0.19
+Version 0.0.28
 
 ## Release Notes
 
@@ -24,4 +24,13 @@ Version 0.0.19
 | **0.0.16** | 2026-02-18 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Bug-Fixing | Pre-Release |  |  |
 | **0.0.17** | 2026-02-18 | Pre-Release | UpdateSoftwarePaclages.ps1 - Adding security mechanics regarding api-tokens | Pre-Release |  |  |
 | **0.0.18** | 2026-02-18 | Pre-Release | UpdateSoftwarePaclages.ps1 - Release of Major Version 1 | Pre-Release |  |  |
-| **0.0.19** | 2026-02-26 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Update | Pre-Release |  |  |
+| **0.0.19** | 2026-02-25 | Pre-Release | UpdateMSOffice.ps1 - Refactor to work with 'UpdateSoftwarePackages.ps1' | Adaption for Chocolatey environments |  |  |
+| **0.0.20** | 2026-02-26 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Update | Pre-Release |  |  |
+| **0.0.21** | 2026-02-26 | Pre-Release | UpdateMSOffice.ps1 - Minor Bug-Fixes and improve compatibillity with 'UpdateSoftwarePAckages.ps1' | |  |  |
+| **0.0.22** | 2026-03-02 | Pre-Release | UpdateSoftwarePaclages.ps1 - Major Update | Pre-Release | Publish-ProGetAssetFile |  |
+| **0.0.23** | 2026-03-03 | Pre-Release | UpdateSoftwarePaclages.ps1 - Removing "Invoke-WebRequest" or "Invoce-RestMethod" for ProGet Asset Upload in "Publish-ProGetAssetFile" and rely fully on the .Net HTTP Client | Pre-Release |  |  |
+| **0.0.24** | 2026-03-03 | Pre-Release | UpdateMSOffice.ps1 - Changing the way of creating zip archive. (Changing to use 7zip instead of compress-archive) | | |  |
+| **0.0.25** | 2026-03-04 | Pre-Release | UpdateMSOffice.ps1 - Adaption 7-Zip CLI Arguments to silence the console output. |  |  |  |
+| **0.0.26** | 2026-03-09 | Pre-Release | launcher.bat - Initial First Attempt |  |  |  |
+| **0.0.27** | 2026-03-09 | Pre-Release | UpdateSoftwarePaclages.ps1 - Optimizing for "launscher.bat" |  |  |  |
+| **0.0.28** | 2026-03-09 | Pre-Release | CreateNewChocoPackage.ps1 - Optimizing for "launscher.bat" |  |  |  |
