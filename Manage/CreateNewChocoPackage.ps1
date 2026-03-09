@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     CreateNewChocoPackage.ps1 automates the initial creation of internal Chocolatey packages in an on-prem environment.
-    It is designed for a ProGet and Chocolatey workflow where installer binaries (MSI/EXE/MSU/APPX,MSIX,APPXBUNDLE,MSIXBUNDLE,NUGET) are hosted in a ProGet
+    It is designed for a ProGet and Chocolatey workflow where installer binaries (MSI/EXE/MSU/APPX,MSIX,APPXBUNDLE,MSIXBUNDLE) are hosted in a ProGet
     Asset Directory and Chocolatey packages reference those internal URLs.
 
     The script performs the following steps:
@@ -94,11 +94,11 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-20
-          Modified: 2026-02-06
+          Modified: 2026-03-09
 
 		  Version - 0.0.1 - (2026-01-23) - Finalized functional version 1.
 		  Version - 0.0.2 - (2026-02-06) - Bug Fixing.
-		  Version - 0.0.3 - (2026-02-10) - Adding NUPFK Support for "FileType"
+          Version - 0.0.3 - (2026-03-09) - Optimizing for "launscher.bat"
           
 
           TODO:
@@ -120,7 +120,7 @@
         -Version "6.6.0" `
         -FileType "exe" `
         -Protocol "http" `
-        -ProGetSrv "PSC-SWREPO1" `
+        -ServerFqdn "PSC-SWREPO1" `
         -ProGetPort "8624" `
         -AssetName "choco-assets" `
         -FeedName "internal-choco" `
@@ -142,46 +142,50 @@
 
 #>
 param(
-    [Parameter(Mandatory)] [string] $ChocoPackagesPath,                                     # e.g. "E:\Choco\Packages"
-    [Parameter(Mandatory)] [string] $SourceFilePath,                                        # e.g. "C:\Users\sysadmineuro\Downloads"
-    [Parameter(Mandatory)] [string] $SourceFile,                                            # e.g. "WinSCP.exe"
-    [Parameter(Mandatory)] [string] $Publisher,                                             # e.g. "Microsoft"
-    [Parameter(Mandatory)] [string] $SoftwareName,                                          # e.g. "NotepadPlusPlus"
-    [Parameter(Mandatory = $false)] [ValidateSet('x64','x86')] [string] $Arch = "x86",      # e.g. "x64" | Default = "x86"
-    [Parameter(Mandatory)] [string] $Version,                                               # e.g. "8.8.9"
-    [Parameter(Mandatory)] 
-    [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle','nupkg')] 
-    [string]  $FileType,                                                                    # e.g. "msi"
+    [Parameter(Mandatory = $false)] [string] $ChocoPackagesPath,                                     # e.g. "E:\Choco\Packages"
+    [Parameter(Mandatory = $false)] [string] $SourceFilePath,                                        # e.g. "C:\Users\sysadmineuro\Downloads"
+    [Parameter(Mandatory = $false)] [string] $SourceFile,                                            # e.g. "WinSCP.exe"
+    [Parameter(Mandatory = $false)] [string] $Publisher,                                             # e.g. "Microsoft"
+    [Parameter(Mandatory = $false)] [string] $SoftwareName,                                          # e.g. "NotepadPlusPlus"
+    [Parameter(Mandatory = $false)] [ValidateSet('x64','x86')] [string] $Arch,                       # e.g. "x64"
+    [Parameter(Mandatory = $false)] [string] $Version,                                               # e.g. "8.8.9"
     [Parameter(Mandatory = $false)] 
-    [ValidateSet('http','https')] [string] $Protocol = "http",                              # e.g. Default = "http"
-    [Parameter(Mandatory = $false)] [string] $ServerFqdn,                                   # e.g. "PSC-SWREPO1"
-    [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                          # e.g. Default = "8624"
-    [Parameter(Mandatory)] [string] $AssetName,                                             # e.g. "choco-assets"
-    [Parameter(Mandatory)] [string] $FeedName,                                              # e.g. "choco-internal"
-    [Parameter(Mandatory)] [string] $ProGetFeedKey                                          # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
+    [ValidateSet('exe','msi','msu','appx','msix','appxbundle','msixbundle','nupkg')] 
+    [string]  $FileType,                                                                             # e.g. "msi"
+    [Parameter(Mandatory = $false)] 
+    [ValidateSet('http','https')] [string] $Protocol,                                                # e.g. Default = "http"
+    [Parameter(Mandatory = $false)] [string] $ServerFqdn,                                            # e.g. "PSC-SWREPO1"
+    [Parameter(Mandatory = $false)] [string] $ProGetPort,                                            # e.g. Default = "8624"
+    [Parameter(Mandatory = $false)] [string] $AssetName,                                             # e.g. "choco-assets"
+    [Parameter(Mandatory = $false)] [string] $FeedName,                                              # e.g. "choco-internal"
+    [Parameter(Mandatory = $false)] [string] $ProGetFeedKey,                                         # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
+    [Parameter(Mandatory = $false)] [switch] $PromptAll                                              # Force prompting all parameters
 
 )
 
-Clear-Host
-
-# Find FDQN for current machine
-if(-not $ServerFqdn){
-	$ServerFqdn = [System.Net.Dns]::GetHostName()
-	$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
-
-	if(-Not $ServerFqdn.endswith($domainName)) {
-    	$ServerFqdn += "." + $domainName
-	}
+if (Get-Module -ListAvailable -Name PSReadLine) {
+    Set-PSReadLineOption -HistorySaveStyle SaveNothing
 }
-$ProGetSrv = $ServerFqdn
 
-$ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
-$ToolsDir                       = "$($ChocoPackagesPath)\$($Publisher)\$($SoftwareName)\tools"
-$ProGetAssetFolder              = "$($Publisher)/$($SoftwareName)"
-$FileName                       = "$($SoftwareName)_$($Arch)_$($Version).$($FileType)"
-$userInput                      = ""
-$ProGetAssetURI                 = "$($ProGetBaseUrl)/endpoints/$($AssetName)/content/$($ProGetAssetFolder)/$($FileName)"
-$ProGetFeedURI                  = "$($ProGetBaseUrl)/nuget/$($FeedName)/"
+
+function Read-Validated {
+  param(
+    [string]$Prompt,
+    [string[]]$Allowed,
+    [string]$Default = $null
+  )
+
+  while ($true) {
+    $suffix = if ($Default) { " [$Default]" } else { "" }
+    $v = Read-Host "$Prompt$suffix"
+    if ([string]::IsNullOrWhiteSpace($v) -and $Default) { $v = $Default }
+
+    if (-not $Allowed -or $Allowed -contains $v) { return $v }
+
+    Write-Host " Invalid value. Allowed: $($Allowed -join ', ')" -ForegroundColor Yellow
+  }
+}
+
 
 function Set-ChocoUrlVariableLine {
     param(
@@ -462,7 +466,7 @@ function Copy-File {
 }
 
 
-
+Clear-Host
 Write-Host -ForegroundColor Cyan "
     +----+ +----+     
     |####| |####|     
@@ -473,6 +477,127 @@ Write-Host -ForegroundColor Cyan "
     |####| |####|       WW   WW II NN   NN DDDDD   OOOO0  WW   WW SSSS
     +----+ +----+       
 "
+
+if($PromptAll){
+
+    if ([string]::IsNullOrWhiteSpace($ChocoPackagesPath)) {
+        $ChocoPackagesPath = Read-Host " Enter Chocolatey package source root (e.g. E:\Choco\Packages)"
+        if (-not (Test-Path $ChocoPackagesPath)) { 
+            Write-Host -ForegroundColor Red " ChocoPackagesPath not found: $ChocoPackagesPath" 
+            Read-Host -Prompt "Press 'Enter' to exit"
+            exit
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SourceFilePath)) {
+        $SourceFilePath = Read-Host " Enter source path of installer file (e.g. C:\Users\User\Downloads)"
+        if (-not (Test-Path $SourceFilePath)) { 
+            Write-Host -ForegroundColor Red " SourceFilePath not found: $SourceFilePath" 
+            Read-Host -Prompt "Press 'Enter' to exit"
+            exit
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SourceFile)) {
+        $SourceFile = Read-Host " Enter name of your source file (e.g. WinSCP.exe)"
+    }
+
+    $fullSource = Join-Path $SourceFilePath $SourceFile
+    if (-not (Test-Path $fullSource)) { 
+        Write-Host -ForegroundColor Red " Source file not found: $fullSource" 
+        Read-Host -Prompt "Press 'Enter' to exit"
+            exit
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Publisher)) {
+        $Publisher = Read-Host " Enter name of the publisher (e.g. Microsoft)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($SoftwareName)) {
+        $SoftwareName = Read-Host " Enter the name of the software (e.g. NotepadPlusPlus)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Arch)) {
+        $Arch = Read-Validated " Enter the architecture (x86/x64)" -Allowed @('x86','x64') -Default 'x86'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Version)) {
+        $Version = Read-Host " Enter the version of the software package (e.g. 1.2.3.4)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($FileType)) {
+        $FileType = Read-Validated " Enter file type" -Allowed @('exe','msi','msu','appx','msix','appxbundle','msixbundle','nupkg')
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Protocol)) {
+        $Protocol = Read-Validated " Enter web protocol (http/https)" -Allowed @('http','https') -Default 'http'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ServerFqdn)) {
+        $ServerFqdn = Read-Host " Enter the server fqdn (e.g. PSC-SWREPO1)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetPort)) {
+        $ProGetPort = Read-Host " Enter the port of your ProGet server (e.g. 8625)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($AssetName)) {
+        $AssetName = Read-Host " Enter the name of your asset repository (e.g. choco-assets)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($FeedName)) {
+        $FeedName = Read-Host " Enter the name of package feed (e.g. choco-production)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetFeedKey)) {
+        $secKey = Read-Host " Enter the api key to your feed" -AsSecureString
+        $ProGetFeedKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+        )
+    }
+
+    Write-Host ""
+    Write-Host "=== Summary ===" -ForegroundColor Magenta
+    Write-Host " ChocoPackagesPath: $ChocoPackagesPath"
+    Write-Host " Source:            $fullSource"
+    Write-Host " Publisher:         $Publisher"
+    Write-Host " Software:          $SoftwareName"
+    Write-Host " Arch:              $Arch"
+    Write-Host " Version:           $Version"
+    Write-Host " FileType:          $FileType"
+    Write-Host " ProGet:            $($Protocol)://$($ServerFqdn)`:$($ProGetPort)  (Asset=$($AssetName), Feed=$($FeedName))"
+    Write-Host ""
+
+    $ok = Read-Host " Continue? (Y/N)"
+    if ($ok -notin @('Y','y')) { exit }
+}
+
+
+
+
+# Find FDQN for current machine
+if(-not $ServerFqdn){
+	$ServerFqdn = [System.Net.Dns]::GetHostName()
+	$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+
+	if(-Not $ServerFqdn.endswith($domainName)) {
+    	$ServerFqdn += "." + $domainName
+	}
+}
+$ProGetSrv = $ServerFqdn
+
+$ProGetBaseUrl                  = "$($Protocol)://$($ProGetSrv):$($ProGetPort)"
+$ToolsDir                       = "$($ChocoPackagesPath)\$($Publisher)\$($SoftwareName)\tools"
+$ProGetAssetFolder              = "$($Publisher)/$($SoftwareName)"
+$FileName                       = "$($SoftwareName)_$($Arch)_$($Version).$($FileType)"
+$userInput                      = ""
+$ProGetAssetURI                 = "$($ProGetBaseUrl)/endpoints/$($AssetName)/content/$($ProGetAssetFolder)/$($FileName)"
+$ProGetFeedURI                  = "$($ProGetBaseUrl)/nuget/$($FeedName)/"
+
+
+
+
+
 Write-Host "-----------------------------------------------------------------------------------"
 Write-Host "              Create New Software Package For Choclatey"
 Write-Host "-----------------------------------------------------------------------------------"
