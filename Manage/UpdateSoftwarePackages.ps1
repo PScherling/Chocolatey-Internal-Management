@@ -72,7 +72,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-03-02
+          Modified: 2026-03-09
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -143,6 +143,7 @@
 											- Get-PackageId
 
           Version - 0.1.5 - (2026-03-03) - Removing "Invoke-WebRequest" or "Invoce-RestMethod" for ProGet Asset Upload in "Publish-ProGetAssetFile" and rely fully on the .Net HTTP Client
+          Version - 0.1.6 - (2026-03-09) - Optimizing for "launscher.bat"
 
           TODO:
 
@@ -187,112 +188,42 @@
 #>
 
 param(
-    [Parameter(Mandatory = $false)] [ValidateSet('ALL','API','WEB','LOCAL')] [string] $UpdateOption = "ALL",                        # e.g. ALL, API, WEB, LOCAL | Default = ALL
+    [Parameter(Mandatory = $false)] [ValidateSet('ALL','API','WEB','LOCAL')] [string] $UpdateOption,                                # e.g. ALL, API, WEB, LOCAL
     [Parameter(Mandatory = $false)] [string] $GitToken,                                                                             # GitHub Personal Access Token  
     [Parameter(Mandatory = $false)] [string] $ProGetFeedApiKey,                                                                     # ProGet Feed API Key (Feed of choco-packages)
     [Parameter(Mandatory = $false)] [string] $ProGetAssetApiKey,                                                                    # ProGet Asset API Key (Asset Repository of installer files)                                         
-    [Parameter(Mandatory)] [string] $ProGetBaseUrl,                                                                                 # e.g. http://PSC-SWREPO1:8624     
-    [Parameter(Mandatory)] [string] $ProGetAssetDir,                                                                                # e.g. choco-assets   
-    [Parameter(Mandatory)] [string] $ProGetChocoFeedName,                                                                           # e.g. internal-choco   
-    [Parameter(Mandatory)] [string] $ChocoPackageSourceRoot,                                                                        # e.g. E:\Choco\Packages     
+    [Parameter(Mandatory = $false)] [string] $ProGetBaseUrl,                                                                        # e.g. http://PSC-SWREPO1:8624     
+    [Parameter(Mandatory = $false)] [string] $ProGetAssetDir,                                                                       # e.g. choco-assets   
+    [Parameter(Mandatory = $false)] [string] $ProGetChocoFeedName,                                                                  # e.g. internal-choco   
+    [Parameter(Mandatory = $false)] [string] $ChocoPackageSourceRoot,                                                               # e.g. E:\Choco\Packages     
     [Parameter(Mandatory = $false)] [switch] $WhatIfPublish,                                                                        # Switch to run everything except ProGet upload and push (good for testing)
-    [Parameter(Mandatory = $false)] [switch] $Force                                                                                 # Switch to force Update process, even if current verison is the latest available version        
+    [Parameter(Mandatory = $false)] [switch] $Force,                                                                                # Switch to force Update process, even if current verison is the latest available version        
+    [Parameter(Mandatory = $false)] [switch] $PromptAll                                                                             # Force prompting all parameters
 )
 
 if (Get-Module -ListAvailable -Name PSReadLine) {
     Set-PSReadLineOption -HistorySaveStyle SaveNothing
 }
 
-Clear-Host
 
 
+function Read-Validated {
+  param(
+    [string]$Prompt,
+    [string[]]$Allowed,
+    [string]$Default = $null
+  )
 
+  while ($true) {
+    $suffix = if ($Default) { " [$Default]" } else { "" }
+    $v = Read-Host "$Prompt$suffix"
+    if ([string]::IsNullOrWhiteSpace($v) -and $Default) { $v = $Default }
 
+    if (-not $Allowed -or $Allowed -contains $v) { return $v }
 
-
-###
-### Config
-###
-$global:WarningCount 			= 0
-$global:ErrorCount 				= 0
-$filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$BaseDir						= "E:\ChocoManage"
-$logDir							= "$($BaseDir)\Logs\UpdateSoftwarePackages"
-$logPath 						= Join-Path -Path "$($logDir)" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
-$userInput 					    = ""
-$baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
-$baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
-$selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
-$csvPath 						= Join-Path -Path "$($BaseDir)" -ChildPath "SofwareList.csv"
-$downloadPath 					= "$($BaseDir)\temp\Downloads"
-
-# Mapping known InstallerType values to extensions
-$installerTypeToExtension = @{
-    exe     = "exe"
-    msi     = "msi"
-    msu     = "msu"
-    msix    = "msix"
-    appx    = "appx"
-    appxbundle  = "appxbundle"
-    msixbundle  = "msixbundle"
-    nullsoft = "exe"
-    inno    = "exe"
-    wix     = "msi"
-    burn    = "exe"
-    zip     = "zip"
+    Write-Host " Invalid value. Allowed: $($Allowed -join ', ')" -ForegroundColor Yellow
+  }
 }
-
-# Mapping known Architecture values
-$installerArchType = @{
-    x86     = "x86"
-    x64     = "x64"
-}
-
-
-# ProGet Environment
-$ProGetChocoPushUrl   			= "$($ProGetBaseUrl)/nuget/$($ProGetChocoFeedName)"  # works with choco push
-$newAssetFileSHA256             = ""
-
-
-
-
-
-###
-### Creating needed directories
-###
-if (-not (Test-Path $logDir)) {
-    Write-Host "Log Directory not found. Creating '$($logDir)'"
-    try{
-        New-Item -ItemType Directory -Path $logDir | Out-Null
-    } catch{
-        #Write-Error "Download directory could not be created. $_"
-        throw "ERROR: Log directory could not be created. $_"
-    }
-}
-
-if (-not (Test-Path $logPath)) {
-    #Write-Host "Creating '$($logPath)'"
-    try{
-        New-Item -ItemType File -Path $logPath | Out-Null
-    } catch{
-        #Write-Error "Download directory could not be created. $_"
-        throw "ERROR: Log file could not be created. $_"
-    }
-}
-
-if (-not (Test-Path $downloadPath)) {
-    Write-Host "Download Directory not found. Creating '$($downloadPath)'"
-    try{
-        New-Item -ItemType Directory -Path $downloadPath | Out-Null
-    } catch{
-        throw "ERROR: Download directory could not be created. $_"
-    }
-}
-
-
-
-
-
 
 ###
 ### Logging
@@ -2462,6 +2393,88 @@ function Invoke-EnterprisePackageUpdate {
 ###
 ### Start of script
 ###
+
+Clear-Host
+
+###
+### Config
+###
+$global:WarningCount 			= 0
+$global:ErrorCount 				= 0
+$filetimestamp 					= Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$BaseDir						= "E:\ChocoManage"
+$logDir							= "$($BaseDir)\Logs\UpdateSoftwarePackages"
+$logPath 						= Join-Path -Path "$($logDir)" -ChildPath "UpdateSoftwarePackages_$($filetimestamp).log"
+$userInput 					    = ""
+$baseApiUrl 					= "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests"
+$baseRawUrl 					= "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests"
+$selectedUpdateOption 			= "ALL" # Defualt is ALL | Options: ALL, API, WEB or LOCAL
+$csvPath 						= Join-Path -Path "$($BaseDir)" -ChildPath "SofwareList.csv"
+$downloadPath 					= "$($BaseDir)\temp\Downloads"
+
+# Mapping known InstallerType values to extensions
+$installerTypeToExtension = @{
+    exe     = "exe"
+    msi     = "msi"
+    msu     = "msu"
+    msix    = "msix"
+    appx    = "appx"
+    appxbundle  = "appxbundle"
+    msixbundle  = "msixbundle"
+    nullsoft = "exe"
+    inno    = "exe"
+    wix     = "msi"
+    burn    = "exe"
+    zip     = "zip"
+}
+
+# Mapping known Architecture values
+$installerArchType = @{
+    x86     = "x86"
+    x64     = "x64"
+}
+
+
+# ProGet Environment
+$ProGetChocoPushUrl   			= "$($ProGetBaseUrl)/nuget/$($ProGetChocoFeedName)"  # works with choco push
+$newAssetFileSHA256             = ""
+
+
+
+
+
+###
+### Creating needed directories
+###
+if (-not (Test-Path $logDir)) {
+    Write-Host "Log Directory not found. Creating '$($logDir)'"
+    try{
+        New-Item -ItemType Directory -Path $logDir | Out-Null
+    } catch{
+        #Write-Error "Download directory could not be created. $_"
+        throw "ERROR: Log directory could not be created. $_"
+    }
+}
+
+if (-not (Test-Path $logPath)) {
+    #Write-Host "Creating '$($logPath)'"
+    try{
+        New-Item -ItemType File -Path $logPath | Out-Null
+    } catch{
+        #Write-Error "Download directory could not be created. $_"
+        throw "ERROR: Log file could not be created. $_"
+    }
+}
+
+if (-not (Test-Path $downloadPath)) {
+    Write-Host "Download Directory not found. Creating '$($downloadPath)'"
+    try{
+        New-Item -ItemType Directory -Path $downloadPath | Out-Null
+    } catch{
+        throw "ERROR: Download directory could not be created. $_"
+    }
+}
+
 Write-Log "=== Starting progress... ==="
 Write-Log "Checking PowerShell Module 'powershell-yaml'"
 if (-not (Get-Module -Name "powershell-yaml")) {
@@ -2509,6 +2522,66 @@ Write-Host -ForegroundColor Cyan "
     |####| |####|       WW   WW II NN   NN DDDDD   OOOO0  WW   WW SSSS
     +----+ +----+       
 "
+
+if($PromptAll){
+
+    if ([string]::IsNullOrWhiteSpace($GitToken)) {
+        $secKey = Read-Host " Enter your api key for GitHub" -AsSecureString
+        $GitToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+        )
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetFeedApiKey)) {
+        $secKey = Read-Host " Enter the api key to your feed" -AsSecureString
+        $ProGetFeedApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+        )
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetAssetApiKey)) {
+        $secKey = Read-Host " Enter the api key to your asset repository" -AsSecureString
+        $ProGetAssetApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+        )
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetBaseUrl)) {
+        $ProGetBaseUrl = Read-Host " Enter the base url (e.g. https://psc-swrepo1:8625)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetAssetDir)) {
+        $ProGetAssetDir = Read-Host " Enter the name of your asset repository (e.g. choco-assets)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetChocoFeedName)) {
+        $ProGetChocoFeedName = Read-Host " Enter the name of your feed (e.g. choco-production)"
+    }
+    
+    if ([string]::IsNullOrWhiteSpace($ChocoPackageSourceRoot)) {
+        $ChocoPackageSourceRoot = Read-Host " Enter Chocolatey package source root (e.g. E:\Choco\Packages)"
+        if (-not (Test-Path $ChocoPackageSourceRoot)) { 
+            Write-Host -ForegroundColor Red " ChocoPackageSourceRoot not found: $ChocoPackageSourceRoot" 
+            Read-Host -Prompt "Press 'Enter' to exit"
+            exit
+        }
+    }
+
+    Write-Host ""
+    Write-Host "=== Summary ===" -ForegroundColor Magenta
+    Write-Host " Update Option:     $UpdateOption"
+    Write-Host " Base Url:          $ProGetBaseUrl"
+    Write-Host " Asset Name:        $ProGetAssetDir"
+    Write-Host " Feed Name:         $ProGetChocoFeedName"
+    Write-Host " Choco Packages:    $ChocoPackageSourceRoot"
+    Write-Host ""
+
+    $ok = Read-Host " Continue? (Y/N)"
+    if ($ok -notin @('Y','y')) { exit }
+}
+
+
+
 
 Write-Host "-----------------------------------------------------------------------------------"
 Write-Host "              Update Software Packages"
