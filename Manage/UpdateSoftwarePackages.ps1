@@ -2537,10 +2537,14 @@ if($PromptAll){
     }
 
     if ([string]::IsNullOrWhiteSpace($ProGetFeedApiKey)) {
-        $secKey = Read-Host " Enter the api key to your feed" -AsSecureString
+        $secKey = Read-Host " Enter the api key to your package feed" -AsSecureString
         $ProGetFeedApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
         )
+    }
+
+	if ([string]::IsNullOrWhiteSpace($ProGetChocoFeedName)) {
+        $ProGetChocoFeedName = Read-Host " Enter the name of your package feed (e.g. choco-production)"
     }
 
     if ([string]::IsNullOrWhiteSpace($ProGetAssetApiKey)) {
@@ -2550,17 +2554,13 @@ if($PromptAll){
         )
     }
 
-    if ([string]::IsNullOrWhiteSpace($ProGetBaseUrl)) {
-        $ProGetBaseUrl = Read-Host " Enter the base url (e.g. https://psc-swrepo1.local:8625)"
-    }
-
-    if ([string]::IsNullOrWhiteSpace($ProGetAssetDir)) {
+	if ([string]::IsNullOrWhiteSpace($ProGetAssetDir)) {
         $ProGetAssetDir = Read-Host " Enter the name of your asset repository (e.g. choco-assets)"
     }
 
-    if ([string]::IsNullOrWhiteSpace($ProGetChocoFeedName)) {
-        $ProGetChocoFeedName = Read-Host " Enter the name of your feed (e.g. choco-production)"
-    }
+    if ([string]::IsNullOrWhiteSpace($ProGetBaseUrl)) {
+        $ProGetBaseUrl = Read-Host " Enter the base url (e.g. https://psc-swrepo1.local:8625)"
+    }  
     
     if ([string]::IsNullOrWhiteSpace($ChocoPackageSourceRoot)) {
         $ChocoPackageSourceRoot = Read-Host " Enter Chocolatey package source root (e.g. E:\Choco\Packages)"
