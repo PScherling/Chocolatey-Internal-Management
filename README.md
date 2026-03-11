@@ -331,11 +331,12 @@ choco install winscp -y
 
 
 ### Installation launcher (planned)
-A second launcher can be created for:
+A second launcher that provides:
 - Chocolatey offline bootstrap
 - Agent/CCM setup
 - Certificate creation/import
 - MDT install helpers
+<img width="1113" height="626" alt="image" src="https://github.com/user-attachments/assets/301ebcea-2173-43c1-90fb-df6d9598ec3e" />
 
 ---
 
