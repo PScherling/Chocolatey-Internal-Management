@@ -5,7 +5,7 @@
 ![Audience](https://img.shields.io/badge/Audience-Enterprise%20%7C%20SelfHosting-informational)
 ![Maintenance](https://img.shields.io/badge/Maintained-Yes-success)
 
-# Chocolatey Internal Management Toolkit (ProGet) — Pre-Release
+# Chocolatey Internal Management Toolkit (ProGet) - Pre-Release
 
 A PowerShell-first toolkit to **create, update, and deploy** Chocolatey packages in **self-hosted / offline-friendly** environments using **ProGet** as:
 
