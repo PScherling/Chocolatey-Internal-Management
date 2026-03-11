@@ -69,10 +69,10 @@
           Modified: 2026-03-11
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
-		  Version - 0.0.2 - (2026-01-30) - Name Change
-		  Version - 0.0.3 - (2026-02-10) - Change Parameter "DownloadPath" to "NotMandatory" and set default value
+          Version - 0.0.2 - (2026-01-30) - Name Change
+          Version - 0.0.3 - (2026-02-10) - Change Parameter "DownloadPath" to "NotMandatory" and set default value
           Version - 0.0.4 - (2026-02-11) - Add new parameter(s) for unattended installation
-		  Version - 0.0.5 - (2026-03-11) - Optimizing for "inst-launcher.bat"
+          Version - 0.0.5 - (2026-03-11) - Optimizing for "inst-launcher.bat"
 
 
 .REQUIREMENTS
@@ -104,7 +104,7 @@
 param( 
   [Parameter(Mandatory = $false)] [string] $DownloadPath = "C:\_it\SetupFiles",                                 # e.g. D:\SetupFiles
   [Parameter(Mandatory = $false)] [switch] $UseLocalInstallation,                                               # e.g. Use this switch if you don't want to "download" the nupkg file from an intenral server and use a local file isntead
-  [Parameter(Mandatory = $false)] [string] $InternalUrl,					 								    # e.g. your internal repo like "https://psc-swrepo1:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
+  [Parameter(Mandatory = $false)] [string] $InternalUrl,					 								                              # e.g. your internal repo like "https://psc-swrepo1:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
   [Parameter(Mandatory = $false)] [string] $InternalSource,                                                     # e.g. your internal nuget source url like "https://psc-swrepo1.local:8625/nuget/choco-feed/"
   [Parameter(Mandatory = $false)] [string] $IntSourceName,                                                      # e.g. Name for the internal nuget feed like "choco-feed"
   [Parameter(Mandatory = $false)] [int] $Prio = 1,                                                              # e.g. Priority for the new source
@@ -146,7 +146,7 @@ function Read-Validated {
 
 if($PromptAll){
 	if (-not $UseLocalInstallation) {
-        $choice = Read-Host " Do you want to use a local chocolatey package for installation (y/n)"
+      $choice = Read-Host " Do you want to use a local chocolatey package for installation (y/n)"
 		if($choice -eq "y"){
 			$UseLocalInstallation = $true
 		}
@@ -155,10 +155,10 @@ if($PromptAll){
 		}
 		else{
 			Write-Host -ForegroundColor Red " Wrong input" 
-            Read-Host -Prompt "Press 'Enter' to exit"
-            exit
+      Read-Host -Prompt "Press 'Enter' to exit"
+      exit
 		}
-    }
+  }
 
 	if (-not $UseSelfSignedCert) {
         $choice = Read-Host " Do you want to provide a self-signed certificate (y/n)"
@@ -170,30 +170,30 @@ if($PromptAll){
 		}
 		else{
 			Write-Host -ForegroundColor Red " Wrong input" 
-            Read-Host -Prompt "Press 'Enter' to exit"
-            exit
+      Read-Host -Prompt "Press 'Enter' to exit"
+      exit
 		}
-    }
+  }
 	
 	if ([string]::IsNullOrWhiteSpace($DownloadPath)) {
-        $DownloadPath = Read-Host " Enter path where the downloaded chocolatey.nupkg will be stored (e.g. C:\_it\SetupFiles)"
-    }
+      $DownloadPath = Read-Validated " Enter path where the downloaded chocolatey.nupkg will be stored (e.g. C:\_it\SetupFiles)" -Default 'C:\_it\SetupFiles'
+  }
 
 	if ([string]::IsNullOrWhiteSpace($ServerFqdn)) {
-        $ServerFqdn = Read-Host " Enter your server fqdn (e.g. psc-swrepo1.local)"
-    }
+      $ServerFqdn = Read-Host " Enter your server fqdn (e.g. psc-swrepo1.local)"
+  }
 
 	if ([string]::IsNullOrWhiteSpace($InternalUrl) -and -not $UseLocalInstallation) {
-        $InternalUrl = Read-Host " Enter your internal repo url to chocolatey package file (e.g. https://psc-swrepo1.local:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg)"
-    }
+      $InternalUrl = Read-Host " Enter your internal repo url to chocolatey package file (e.g. https://psc-swrepo1.local:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg)"
+  }
 
 	if ([string]::IsNullOrWhiteSpace($IntSourceName)) {
-        $IntSourceName = Read-Host " Enter your package feed name (e.g. choco-feed)"
-    }
+      $IntSourceName = Read-Host " Enter your package feed name (e.g. choco-feed)"
+  }
 	
 	if ([string]::IsNullOrWhiteSpace($InternalSource)) {
-        $InternalSource = Read-Host " Enter your package feed url (e.g. https://psc-swrepo1.local:8625/nuget/choco-feed/)"
-    }
+      $InternalSource = Read-Host " Enter your package feed url (e.g. https://psc-swrepo1.local:8625/nuget/choco-feed/)"
+  }
 
 }
 
