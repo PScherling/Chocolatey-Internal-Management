@@ -148,6 +148,8 @@
           Version - 0.1.5 - (2026-03-03) - Removing "Invoke-WebRequest" or "Invoce-RestMethod" for ProGet Asset Upload in "Publish-ProGetAssetFile" and rely fully on the .Net HTTP Client
           Version - 0.1.6 - (2026-03-09) - Optimizing for "launcher.bat"
           Version - 0.1.7 - (2026-03-11) - Optimizing "PromptAll" functionality
+          Version - 0.1.8 - (2026-03-11) - Encountered a bug if we are Updateing Office packages. as we are handling this as "zip", we are overriting the "filetype" in the chocoinstall script to "zip". But there are only "exe", "msi" or "msu" as a value allowed.
+                                            In fact we are setting the "InstallerType" by creating the package with "CreateNewChocoPackage.ps1" so I think we don't need to "override" the fyletype in the instalaltion script of the chocolatey package.
 
           TODO:
 
@@ -1504,11 +1506,13 @@ function Update-ChocoInstallationScript {
     $content = Get-Content $scriptPath -Raw
 
     # Always update fileType in packageArgs
+    <#
     $content = [regex]::Replace(
         $content,
         "(?m)^\s*fileType\s*=\s*'.*?'.*$",
         "  fileType      = '$FileType' #only one of these: exe, msi, msu"
     )
+    #>
 
     # Keep checksum type consistent (optional but recommended)
     $content = [regex]::Replace(
