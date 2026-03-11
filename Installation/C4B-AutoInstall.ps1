@@ -59,6 +59,9 @@
 .PARAMETER DBUserPassword
   Password for DB/LOCAL login method. Mandatory for DB and LOCAL.
 
+.PARAMETER PromptAll
+  To force all prompts for input (needed if we call the script via the launcher.bat)
+
 
 .LINK
     https://community.chocolatey.org/packages/chocolatey
@@ -86,11 +89,12 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-02-02
+          Modified: 2026-03-11
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
           Version - 0.0.2 - (2026-01-29) - Changed from Nexus to ProGet compatibility
 		  Version - 0.0.3 - (2026-02-02) - Bug Fixing and Name Change
+          Version - 0.0.4 - (2026-03-11) - Optimizing for "inst-launcher.bat"
 
 
 .REQUIREMENTS
@@ -142,7 +146,7 @@ param(
         }
         $true
     })]
-    [Parameter(Mandatory)][string]$LicensePath = $(
+    [Parameter(Mandatory = $false)][string]$LicensePath = $(
         if (Test-Path $env:ChocolateyInstall\license\chocolatey.license.xml) {
             # Chocolatey License file is already installed
             Join-Path $env:ChocolateyInstall "license\chocolatey.license.xml"
@@ -150,18 +154,21 @@ param(
             # Prompt the user for the license.
             Read-Host -Prompt "Provide full path to your license file (e.g. 'D:\chocolatey.license.xml')"
         }
-    ),                                                                                        # e.g. D:\License.xml
-    #[Parameter(Mandatory)][string]$ServerFqdn,                                               # e.g. psc-c4bsrv.local
-    [Parameter(Mandatory)] [string] $BusinessLicenseGuid,                                     # e.g. You get this from the chocolatey.license.xml file
-    [ValidateSet('http','https')] [string] $Protocol = "http",                                # e.g. Default = "http"
-    [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                            # e.g. Default = "8624"
-    [Parameter(Mandatory)] [string] $FeedName,                                                # e.g. "choco-internal"
-    [Parameter(Mandatory)] [string] $ProGetFeedKey,                                           # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
+    ),                                                                                            # e.g. D:\License.xml
+    #[Parameter(Mandatory)][string]$ServerFqdn,                                                   # e.g. psc-c4bsrv.local
+    [Parameter(Mandatory = $false)] [string] $BusinessLicenseGuid,                                # e.g. You get this from the chocolatey.license.xml file
+    [Parameter(Mandatory = $false)] 
+    [ValidateSet('http','https')] 
+    [string] $Protocol = "http",                                                                  # e.g. Default = "http"
+    [Parameter(Mandatory = $false)] [string] $ProGetPort = "8624",                                # e.g. Default = "8624"
+    [Parameter(Mandatory = $false)] [string] $FeedName,                                           # e.g. "choco-internal"
+    [Parameter(Mandatory = $false)] [string] $ProGetFeedKey,                                      # e.g. [Your-ProGet-Feed-API-Key] (Not to the Assets!)
 	[Parameter(Mandatory = $false)] 
 	[ValidateSet('DB','LOCAL','DOM')] 
-	[string] $DBLoginMethod = "DB",                                            				  # e.g. Use this Parameter to set DB Login | Default is DB User
-    [Parameter(Mandatory = $false)] [string] $DBUser = "ChocoUser",                           # e.g. DB User Name | Default is 'ChocoUser'
-    [Parameter(Mandatory)] [string] $DBUserPassword 										  # e.g. Provide a super hard password!
+	[string] $DBLoginMethod = "DB",                                            				      # e.g. Use this Parameter to set DB Login | Default is DB User
+    [Parameter(Mandatory = $false)] [string] $DBUser = "ChocoUser",                               # e.g. DB User Name | Default is 'ChocoUser'
+    [Parameter(Mandatory = $false)] [string] $DBUserPassword,									  # e.g. Provide a super hard password!
+    [Parameter(Mandatory = $false)] [switch] $PromptAll                                           # Force prompting all parameters
 )
 
 $ErrorActionPreference = 'Stop'
@@ -171,6 +178,89 @@ $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
   throw "Run PowerShell as Administrator."
 }
+
+
+###
+### Needed if we use "PromptAll" parameter to check the user input
+###
+function Read-Validated {
+  param(
+    [string]$Prompt,
+    [string[]]$Allowed,
+    [string]$Default = $null
+  )
+
+  while ($true) {
+    $suffix = if ($Default) { " [$Default]" } else { "" }
+    $v = Read-Host "$Prompt$suffix"
+    if ([string]::IsNullOrWhiteSpace($v) -and $Default) { $v = $Default }
+
+    if (-not $Allowed -or $Allowed -contains $v) { return $v }
+
+    Write-Host " Invalid value. Allowed: $($Allowed -join ', ')" -ForegroundColor Yellow
+  }
+}
+
+if($PromptAll){
+    if ([string]::IsNullOrWhiteSpace($LicensePath)) {
+        if (Test-Path $env:ChocolateyInstall\license\chocolatey.license.xml) {
+            # Chocolatey License file is already installed
+            Join-Path $env:ChocolateyInstall "license\chocolatey.license.xml"
+        }
+        else{
+            $LicensePath = Read-Host " Enter the path to your license file (e.g. D:\License.xml)"
+            if (-not (Test-Path $LicensePath)) { 
+                Write-Host -ForegroundColor Red " License not found: $LicensePath" 
+                Read-Host -Prompt "Press 'Enter' to exit"
+                exit
+            }
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($BusinessLicenseGuid)) {
+        $BusinessLicenseGuid = Read-Host " Provide your License Guid (You get this from the chocolatey.license.xml file)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Protocol)) {
+        $Protocol = Read-Validated " Enter web protocol (http/https)" -Allowed @('http','https') -Default 'http'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetPort)) {
+        $ProGetPort = Read-Validated " Enter the port of your ProGet server (e.g. 8625)" -Default '8624'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($FeedName)) {
+        $FeedName = Read-Host " Enter your package feed name (e.g. choco-feed)"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ProGetFeedKey)) {
+        $secKey = Read-Host " Enter the api key to your package feed" -AsSecureString
+        $ProGetFeedKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+        )
+    }
+
+    if ([string]::IsNullOrWhiteSpace($DBLoginMethod)) {
+        $DBLoginMethod = Read-Validated " Enter your login method to your database (e.g. DB)" -Allowed @('DB','LOCAL','DOM') -Default 'DB'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($DBUser)) {
+        $DBUser = Read-Validated " Enter your db user name (e.g. ChocoUser)" -Default 'ChocoUser'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($DBUserPassword)) {
+        $secKey = Read-Host " Enter the password of your db user" -AsSecureString
+        $DBUserPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+        )
+    }
+}
+
+
+
+
+
+
 
 if ($DBLoginMethod -ne 'DOM' -and [string]::IsNullOrWhiteSpace($DBUserPassword)) {
 	throw "DBUserPassword is required when DBLoginMethod is 'DB' or 'LOCAL'."
