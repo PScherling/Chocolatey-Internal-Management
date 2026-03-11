@@ -6,19 +6,19 @@ REM          Primary: @Patrick Scherling
 REM          Created: 2026-03-09
 REM          Modified: 2026-03-11
 REM
-REM          Version - 0.0.1 - (2026-03-09) - Finalized functional version 1.
+REM	         Version - 0.0.1 - (2026-03-09) - Finalized functional version 1.
 REM          Version - 0.0.2 - (2026-03-11) - Adapting header section in 'Update software packages'
 REM
 
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 title PSC Choco Tools Launcher
-
+set "Version=0.0.2"
 :menu
 cls
 echo ===================================================
 echo        PSC Choco Tools Launcher
-echo          Ver.:    0.0.1
+echo          Ver.:    %Version%
 echo          Author:  https://github.com/PScherling
 echo ===================================================
 echo.
@@ -49,7 +49,7 @@ goto done
 cls
 echo ============================================
 echo        Update Software Packages
-echo          Ver.:    0.0.1
+echo          Ver.:    %Version%
 echo          Author:  https://github.com/PScherling
 echo ============================================
 echo.
