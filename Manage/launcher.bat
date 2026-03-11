@@ -6,7 +6,7 @@ REM          Primary: @Patrick Scherling
 REM          Created: 2026-03-09
 REM          Modified: 2026-03-11
 REM
-REM		       Version - 0.0.1 - (2026-03-09) - Finalized functional version 1.
+REM          Version - 0.0.1 - (2026-03-09) - Finalized functional version 1.
 REM          Version - 0.0.2 - (2026-03-11) - Adapting header section in 'Update software packages'
 REM
 
