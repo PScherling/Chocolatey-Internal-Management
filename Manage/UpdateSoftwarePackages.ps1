@@ -58,6 +58,9 @@
 .PARAMETER Force
     To force a package update, even if there is now new version available. Caution! Use this only for testing scenarios or you will poison your nuspec and asset.
 
+.PARAMETER PromptAll
+    To force all prompts for input (needed if we call the script via the launcher.bat)
+
 
 .LINK
 	https://github.com/microsoft/winget-pkgs  
@@ -72,7 +75,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-03-09
+          Modified: 2026-03-11
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -143,7 +146,8 @@
 											- Get-PackageId
 
           Version - 0.1.5 - (2026-03-03) - Removing "Invoke-WebRequest" or "Invoce-RestMethod" for ProGet Asset Upload in "Publish-ProGetAssetFile" and rely fully on the .Net HTTP Client
-          Version - 0.1.6 - (2026-03-09) - Optimizing for "launscher.bat"
+          Version - 0.1.6 - (2026-03-09) - Optimizing for "launcher.bat"
+          Version - 0.1.7 - (2026-03-11) - Optimizing "PromptAll" functionality
 
           TODO:
 
@@ -2525,7 +2529,7 @@ Write-Host -ForegroundColor Cyan "
 
 if($PromptAll){
 
-    if ([string]::IsNullOrWhiteSpace($GitToken)) {
+    if ([string]::IsNullOrWhiteSpace($GitToken -and $UpdateOption -eq "API")) {
         $secKey = Read-Host " Enter your api key for GitHub" -AsSecureString
         $GitToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
