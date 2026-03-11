@@ -39,6 +39,9 @@
   Optional switch to import the CCM server’s self-signed certificate from \\<ServerFqdn>\certs.
   Intended for lab/test environments where a public/trusted CA certificate is not available.
 
+.PARAMETER PromptAll
+    To force all prompts for input (needed if we call the script via the launcher.bat)
+
 
 .REQUIREMENTS
   - Run as Administrator
@@ -62,9 +65,10 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-30
-          Modified: 2026-02-02
+          Modified: 2026-03-11
 
           Version - 0.0.1 - (2026-02-02) - Finalized functional version 1.
+          Version - 0.0.2 - (2026-03-11) - Optimizing for "inst-launcher.bat"
 
 .REQUIREMENTS
   Chocolatey (chocolatey package)
@@ -80,8 +84,9 @@
 #>
 
 param(
-  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert,                   # e.g. Thsi switch is for client execution only to import the self-signed server certificate
-  [Parameter(Mandatory)] [string] $ServerFqdn									 # e.g. Server01.local
+  [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert,                   # e.g. This switch is for client execution only to import the self-signed server certificate
+  [Parameter(Mandatory = $false)] [string] $ServerFqdn,                          # e.g. Server01.local
+  [Parameter(Mandatory = $false)] [switch] $PromptAll                            # Force prompting all parameters
 )
 
 $ErrorActionPreference = 'Stop'
@@ -91,16 +96,68 @@ $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
   throw "Run PowerShell as Administrator."
 }
+
+###
+### Needed if we use "PromptAll" parameter to check the user input
+###
+function Read-Validated {
+  param(
+    [string]$Prompt,
+    [string[]]$Allowed,
+    [string]$Default = $null
+  )
+
+  while ($true) {
+    $suffix = if ($Default) { " [$Default]" } else { "" }
+    $v = Read-Host "$Prompt$suffix"
+    if ([string]::IsNullOrWhiteSpace($v) -and $Default) { $v = $Default }
+
+    if (-not $Allowed -or $Allowed -contains $v) { return $v }
+
+    Write-Host " Invalid value. Allowed: $($Allowed -join ', ')" -ForegroundColor Yellow
+  }
+}
+
+if($PromptAll){
+  if (-not $UseSelfSignedCert) {
+        $choice = Read-Host " Do you want to use a self-signed certificate (y/n)"
+		if($choice -eq "y"){
+			$UseSelfSignedCert = $true
+		}
+		elseif{$choice -eq "n"){
+			$UseSelfSignedCert = $false
+		}
+		else{
+			Write-Host -ForegroundColor Red " Wrong input" 
+      Read-Host -Prompt "Press 'Enter' to exit"
+      exit
+		}
+  }
+
+  if ([string]::IsNullOrWhiteSpace($ServerFqdn)) {
+    $ServerFqdn = Read-Host " Enter the repo server fqdn (e.g. psc-swrepo1.local)"
+  }
+}
+
+# Find FDQN for current machine
+$ServerName = [System.Net.Dns]::GetHostName()
+$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+
+if(-Not $ServerName.endswith($domainName)) {
+    $ServerFqdn = "$($ServerName).$($domainName)"
+}
+
 $CcmServicePort = "24020"
 $CcmSvcUrl = "https://$($ServerFqdn):$($CcmServicePort)/ChocolateyManagementService"
 
 # Find FDQN for current machine
-$Fqdn = [System.Net.Dns]::GetHostName()
-$domainName = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().DomainName
+<#
+$Fqdn = $ServerName
 
 if(-Not $Fqdn.endswith($domainName)) {
     $Fqdn += "." + $domainName
 }
+#>
 
 
 
