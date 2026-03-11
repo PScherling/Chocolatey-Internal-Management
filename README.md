@@ -327,6 +327,8 @@ choco install winscp -y
 `launcher.bat` provides a menu to:
 - Create new package
 - Update packages (ALL/API/WEB/LOCAL)
+<img width="1113" height="626" alt="launcher" src="https://github.com/user-attachments/assets/dd23a812-44ec-44aa-902f-07838eb39735" />
+
 
 ### Installation launcher (planned)
 A second launcher can be created for:
