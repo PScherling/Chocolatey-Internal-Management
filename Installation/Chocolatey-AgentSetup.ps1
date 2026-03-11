@@ -36,7 +36,7 @@
   Example: c4bserver.local
 
 .PARAMETER UseSelfSignedCert
-  Optional switch to import the CCM server’s self-signed certificate from \\<ServerFqdn>\certs.
+  Optional switch to import the CCM server's self-signed certificate from \\<ServerFqdn>\certs.
   Intended for lab/test environments where a public/trusted CA certificate is not available.
 
 .PARAMETER PromptAll
