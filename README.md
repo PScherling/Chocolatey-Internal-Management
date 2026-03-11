@@ -1,74 +1,96 @@
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows-blue)
-![Audience](https://img.shields.io/badge/Audience-Enterprise-informational)
+![Repository](https://img.shields.io/badge/ProGet-Free%20%7C%20Paid-informational)
+![Chocolatey](https://img.shields.io/badge/Chocolatey-FOSS%20%7C%20C4B-informational)
+![Audience](https://img.shields.io/badge/Audience-Enterprise%20%7C%20SelfHosting-informational)
 ![Maintenance](https://img.shields.io/badge/Maintained-Yes-success)
 
-# Chocolatey-Internal-Management | Pre-Release
+# Chocolatey Internal Management Toolkit (ProGet) — Pre-Release
 
-A PowerShell toolkit to **create and maintain internal/offline Chocolatey packages** backed by **ProGet**.
-I Started this project in case the "Chocolatey for Busniess" solution is not applicable for you and you can only use the "FOSS" variant of Chocolatey.
+A PowerShell-first toolkit to **create, update, and deploy** Chocolatey packages in **self-hosted / offline-friendly** environments using **ProGet** as:
 
-This repository focuses on a practical enterprise workflow:
+- **Asset host** (installer binaries, large artifacts)
+- **NuGet feed** (Chocolatey packages)
 
-- **Installer binaries** (EXE/MSI/MSU/APPX/MSIX/APPXBUNDLE/MSIXBUNDLE/NUPKG) are stored in a **ProGet Asset Directory**
-- **Chocolatey packages** reference internal ProGet URLs and validate with **SHA256**
-- Packages are **packed and pushed** to a **ProGet NuGet (Chocolatey) feed**
-- Clients install from your internal feed (no public internet dependency)
+No Otter, no Maven, no extra deployment suites required — **just PowerShell + cmd + ProGet + Chocolatey**.
 
- ### Disclamer
- The whole Toolkit is intended for internal feed ONLY usage. Never use this to push packages to public repositories!
+> **Disclaimer**
+> - This toolkit is intended for **internal repository usage only**.
+> - **Do not** use this to publish packages to public repositories.
+> - **Do not commit API keys / PATs**. Use prompts, environment variables, or a secure secret store.
 
 ---
 
 ## Why this exists
 
-Chocolatey is great at client-side package install/uninstall, but in locked-down environments you still need:
+Chocolatey is great for client-side install/uninstall. But in restricted enterprise networks you still need:
 
-- a consistent naming convention for installers
-- a binary host (ProGet Assets) + package host (ProGet NuGet feed)
-- repeatable creation of new packages
-- repeatable update workflow (detect new version → download → upload → update nuspec/install script/checksums → push)
+- A consistent naming convention for installers and packages
+- A binary host (**ProGet Assets**) + package host (**ProGet NuGet feed**)
+- Repeatable package creation (new software)
+- Repeatable update workflow (discover → download → upload → update package → push)
 
-This toolkit automates those steps.
+This repository automates the full workflow for both **Chocolatey FOSS** and **Chocolatey for Business (C4B)** environments.
 
 ---
 
-## What’s included
+## High-level architecture
 
-### 1) `CreateNewChocoPackage.ps1`
-Automates the initial creation of an internal Chocolatey package:
+```
+             (Packaging Host)
+      +-----------------------------+
+      | CreateNewChocoPackage.ps1   |
+      | UpdateSoftwarePackages.ps1  |
+      +--------------+--------------+
+                     |
+                     | upload installers / push packages
+                     v
+           +---------+---------+
+           |      ProGet       |
+           |  Asset Directory  |  <-- installers, zips, msix, etc.
+           |  NuGet Feed       |  <-- .nupkg packages
+           +---------+---------+
+                     |
+                     | internal feed + trusted cert
+                     v
+      +-----------------------------+
+      |        Client(s)            |
+      | choco install <pkg>         |
+      | MDT task sequence installs  |
+      +-----------------------------+
+```
 
-- creates vendor base directory structure
-- generates a package template via `choco new`
-- copies and renames the installer to a standard naming convention  
-  `SoftwareName_Arch_Version.FileType`
-- calculates SHA256
-- updates `tools\chocolateyinstall.ps1`:
-  - sets `$url` / `$url64` to ProGet Asset URL
-  - updates `fileType`, `checksum`, `checksum64`, `checksumType*`
-- packs `.nupkg` and pushes it to ProGet feed
+---
 
-### 2) `UpdateSoftwarePackages.ps1`
-Automates updating existing packages based on the 'SoftwareList.csv':
+## Repository contents
 
-- reads `SoftwareList.csv`
-- checks latest versions via:
-  - **API**: WinGet manifests through GitHub API (+ YAML parsing)
-  - **WEB**: vendor URL defined in CSV
-  - **LOCAL**: pre-downloaded files in a local drop location
-- downloads the new installer
-- uploads it to ProGet Assets
-- fetches SHA256 from ProGet metadata
-- updates:
-  - `.nuspec` version
-  - `tools\checksums.json`
-  - `tools\chocolateyinstall.ps1` (urls/fileType/checksums)
-- packs and pushes updated `.nupkg` to ProGet feed
-- writes detailed logs + warning/error summary
+This project has two “sides”:
 
-<img width="1579" height="843" alt="image" src="https://github.com/user-attachments/assets/4bc45d5c-922d-4839-84a2-493a2620f027" />
-<img width="1579" height="843" alt="image" src="https://github.com/user-attachments/assets/f4dce42d-1074-45e2-aa4e-cd1193fddaba" />
-<img width="1579" height="843" alt="image" src="https://github.com/user-attachments/assets/40e12f7a-8678-4ef9-afad-c4e3228adda2" />
+### A) Managing (Packaging + Updating)
+- `launcher.bat`  
+  A simple launcher to select bewteen 'Create a new package' or 'Update software packages'. You can create a nice desktop shortcut to use this batch script ;)
+- `CreateNewChocoPackage.ps1`  
+  Creates a new internal Chocolatey package template, updates the install script to point to a ProGet Asset URL (including SHA256), builds the .nupkg and pushes it to a ProGet Chocolatey/NuGet feed.
+- `UpdateSoftwarePackages.ps1`  
+  Automates downloading, updating, and synchronizing third-party software installers from multiple sources (Winget API, direct web links, or local downloads).
+- `UpdateMSOffice.ps1` *(helper script for Office CDN/ODT updates)*  
+  Automates downloading and updating of Microsoft Office installation sources for multiple editions using the Office Deployment Tool (ODT).
+- `SoftwareList.csv`  
+  'Database' of your used/managed software in your environment
+
+### B) Installation (Client / Deployment)
+- `Chocolatey-AutoInstall.ps1`  
+  Installs Chocolatey CLI **offline-friendly** from a local/internal `.nupkg`, can configure internal feed + trust certificate.
+- `CreateSelfSignedCert.ps1`  
+  Creates a self-signed TLS cert for C4B/CCM servers and exports `.pfx` + `.cer`.
+- `Chocolatey-AgentSetup.ps1`  
+  Installs/configures Chocolatey Agent for C4B + CCM.
+- `C4B-AutoInstall.ps1`  
+  Automated C4B + CCM + ProGet setup (incl. SQL Express backend for CCM).
+- `Install_ChocoApplication.ps1`  
+  MDT task sequence helper to install packages silently during deployment.
+
+> Tip: Many teams keep “Managing” scripts on a packaging server and “Installation” scripts in deployment shares / client automation repos.
 
 ---
 
@@ -77,72 +99,73 @@ Automates updating existing packages based on the 'SoftwareList.csv':
 ### General
 - Windows
 - PowerShell **5.1+** (PowerShell 7+ recommended)
-- Chocolatey CLI installed on the packaging host
-- ProGet server (Free or paid)
+- ProGet (Free or paid)
+- Chocolatey CLI installed on the packaging host (for `choco new`, `choco pack`, `choco push`)
 
-### For WinGet API mode
-- GitHub personal access token (PAT) recommended (avoids rate limits)
-- PowerShell module: `powershell-yaml` (script can auto-install/import)
+### For update providers
+- **Winget/GitHub API**:
+  - GitHub Personal Access Token (PAT) recommended (avoids rate limits)
+  - `powershell-yaml` module (auto-install/import supported)
+- **WebDirectory/DirectUrl**:
+  - HTTPS/HTTP access to vendor endpoints or internal endpoints
+- **Local**:
+  - A local “drop” folder with manually downloaded installers
 
 ### ProGet
-You need two ProGet “areas”:
-1) **Asset Directory** (installer binaries)  
-2) **NuGet Feed** (Chocolatey packages)  
+You typically use:
+1) **Asset Directory** (installer binaries / zips)  
+2) **NuGet feed** (Chocolatey packages)
 
 And two API keys:
 - **Asset API key**: View/Download (+ Add if uploading)
-- **Feed API key**: Publish (push) permission to the NuGet feed
+- **Feed API key**: Publish permission for NuGet feed (`choco push`)
 
 ---
 
 ## ProGet setup (high level)
 
-1) Create an **Asset Directory** (example name: `choco-assets`)
-2) Create a **Chocolatey Packages feed** (example name: `choco-internal`)
-3) Generate API keys:
-   - one for assets
-   - one for feed publishing
-4) Verify endpoints:
-   - Asset download/content URL pattern:
-     - `http(s)://<server>:<port>/endpoints/<assetDir>/content/<path>/<file>`
-   - Asset metadata URL pattern:
-     - `http(s)://<server>:<port>/endpoints/<assetDir>/metadata/<path>/<file>`
-   - Asset dir listing URL pattern:
-     - `http(s)://<server>:<port>/endpoints/<assetDir>/dir/<path>`
-   - NuGet feed push endpoint used by `choco push`:
-     - `http(s)://<server>:<port>/nuget/<feedName>/`
+1) Create an **Asset Directory** (example: `choco-assets`)
+2) Create a **NuGet feed** for Chocolatey packages (example: `choco-production`)
+3) Create API keys:
+   - one for assets (upload + view)
+   - one for feed publishing (push)
+4) Verify endpoint patterns:
 
-For more information how to setup ProGet with Chocolatey visit: 
-- https://docs.inedo.com/docs/proget/overview
-- https://docs.chocolatey.org/en-us/features/host-packages/
+- Asset content download/upload:
+  - `http(s)://<server>:<port>/endpoints/<assetDir>/content/<path>/<file>`
+- Asset metadata:
+  - `http(s)://<server>:<port>/endpoints/<assetDir>/metadata/<path>/<file>`
+- Asset directory listing:
+  - `http(s)://<server>:<port>/endpoints/<assetDir>/dir/<path>`
+- NuGet feed push endpoint (used by `choco push`):
+  - `http(s)://<server>:<port>/nuget/<feedName>/`
+
+References:
+- ProGet docs: https://docs.inedo.com/docs/proget/overview
+- Chocolatey hosting packages: https://docs.chocolatey.org/en-us/features/host-packages/
 
 ---
 
-## Supported installer types
+## Supported artifact types
 
-These values are supported by the toolkit for **naming, storage, and metadata**:
+The toolkit can handle artifacts used as “installers” or payloads (stored in ProGet assets):
 
-- `exe`
-- `msi`
-- `msu`
-- `appx`
-- `msix`
-- `appxbundle`
-- `msixbundle`
+- `exe`, `msi`, `msu`
+- `appx`, `msix`, `appxbundle`, `msixbundle`
+- `zip`
 - `nupkg`
 
-> Note: **Chocolatey helper functions** are primarily designed around `exe/msi/msu`.  
-> APPX/MSIX often require custom install logic (`Add-AppxPackage`, provisioning, certificates, etc.).  
-> This toolkit can still **package and update** those installers, but your `chocolateyinstall.ps1` template may need to be adjusted for those types.
+> Note: Chocolatey helper functions are most straightforward for `exe/msi/msu`.
+> APPX/MSIX often need custom install logic and certificate handling.
 
 ---
 
 ## Quick start
 
-### 1) Create a new Chocolatey package
+### 1) Create a new internal Chocolatey package
 
 ```powershell
-.\scripts\CreateNewChocoPackage.ps1 `
+.\CreateNewChocoPackage.ps1 `
   -ChocoPackagesPath "E:\Choco\Packages" `
   -SourceFilePath "C:\Users\Admin\Downloads" `
   -SourceFile "WinSCP.exe" `
@@ -151,130 +174,213 @@ These values are supported by the toolkit for **naming, storage, and metadata**:
   -Arch "x86" `
   -Version "6.6.0" `
   -FileType "exe" `
-  -Protocol "http" `
-  -ProGetSrv "PSC-SWREPO1" `
-  -ProGetPort "8624" `
+  -Protocol "https" `
+  -ServerFqdn "PSC-SWREPO1" `
+  -ProGetPort "8625" `
   -AssetName "choco-assets" `
-  -FeedName "internal-choco" `
+  -FeedName "choco-production" `
   -ProGetFeedKey "YOUR_FEED_API_KEY"
 ```
 
-What happens next:
-- installer is copied into `tools\`
-- renamed to `Software_Arch_Version.ext`
-- install script updated to reference ProGet Asset URL + SHA256
-- you’re prompted to review `silentArgs` + `.nuspec`
-- package is built and pushed to ProGet
+What it does (typical):
+- Creates vendor/software folder structure
+- Generates template (`choco new`)
+- Copies + renames installer into `tools\` using a deterministic format:
+  - `SoftwareName[_SubName1][_SubName2]_Arch_Version.ext`
+- Updates `tools\chocolateyinstall.ps1` (`$url/$url64`, `fileType`, SHA256)
+- Packs and pushes to ProGet feed
 
----
+### 2) Update packages automatically
 
-### 2) Update packages automatically (WinGet API mode)
+Example: **API mode** (Winget/GitHub manifests)
 
 ```powershell
-.\scripts\UpdateSoftwarePackages.ps1 `
-  -UpdateOption "API" `
+.\UpdateSoftwarePackages.ps1 `
+  -UpdateOption API `
   -GitToken "YOUR_GITHUB_TOKEN" `
   -ProGetFeedApiKey "YOUR_FEED_API_KEY" `
   -ProGetAssetApiKey "YOUR_ASSET_API_KEY" `
-  -ProGetBaseUrl "http://PSC-SWREPO1:8624" `
+  -ProGetBaseUrl "https://psc-swrepo1.local:8625" `
   -ProGetAssetDir "choco-assets" `
-  -ProGetChocoFeedName "internal-choco" `
+  -ProGetChocoFeedName "choco-production" `
   -ChocoPackageSourceRoot "E:\Choco\Packages"
 ```
 
+Test mode (skip upload/push):
+```powershell
+.\UpdateSoftwarePackages.ps1 -UpdateOption API ... -WhatIfPublish
+```
+
+Force mode (run pipeline even if versions match):
+```powershell
+.\UpdateSoftwarePackages.ps1 -UpdateOption API ... -Force
+```
+<img width="1676" height="835" alt="API_1" src="https://github.com/user-attachments/assets/4b053b47-462b-45aa-9205-b32268f2717a" />
+<img width="1676" height="835" alt="API_2" src="https://github.com/user-attachments/assets/b223a4a2-7c4a-4998-8494-71431fc96902" />
+<img width="1676" height="835" alt="API_3" src="https://github.com/user-attachments/assets/30abd4b5-b4f7-424d-b02e-ebcbacb67d9f" />
+<img width="1676" height="835" alt="API_4" src="https://github.com/user-attachments/assets/17458da0-e7b5-48f3-abf7-ea74cb5eb739" />
+<img width="1676" height="835" alt="API_5" src="https://github.com/user-attachments/assets/dd237a63-7d3b-42cc-9a2c-807b502d10d8" />
+
+
 ---
 
-## Configuration
-
-### `SoftwareList.csv`
+## Configuration: `SoftwareList.csv`
 
 Delimiter: `;`
 
-Recommended columns:
-
-| Column | Example | Notes |
+### Recommended columns (current model)
+| Column | Example | Meaning |
 |---|---|---|
-| Publisher | `NotepadPlusPlus` | Used for folder structure and winget path |
-| SoftwareName | `NotepadPlusPlus` | Package name and winget path |
-| SubName1 | *(optional)* | Used for deeper winget manifest folders / naming |
-| SubName2 | *(optional)* | Same as above |
-| PreferredExtension | `exe` | Preferred installer type (or file extension fallback) |
-| Arch | `x64` or `x86` | Used to pick installer in YAML |
-| UpdateOption | `API`, `WEB`, `LOCAL` | How the script updates this package |
-| WebLink | `https://...` | Required for WEB mode |
+| Publisher | `Chocolatey` | Folder grouping + display |
+| SoftwareName | `ChocolateyGUI` | Base name used for package/folder |
+| SubName1 | `ProPlus` | Optional specialization / edition |
+| SubName2 | *(empty)* | Optional second specialization |
+| PreferredExtension | `.msi` | Enterprise-controlled ext used for naming + selection |
+| Arch | `x64` / `x86` | Target architecture |
+| UpdateOption | `API` / `WEB` / `LOCAL` / `ALL` | Run mode selection |
+| SourceType | `Winget` / `GitHubRelease` / `WebDirectory` / `DirectUrl` / `Local` / `OfficeCdn` | Provider |
+| SourceRef | `chocolatey/ChocolateyGUI` | Provider-specific reference |
+| ManifestSubPath | *(optional)* | Winget manifest subpath override |
+| AssetPattern | `.*x64.*\.msi$` | Regex to select correct GitHub release asset |
+| ManualVersionRequired | `True/False` | Force prompt for version in LOCAL mode |
+| Notes | *(optional)* | Documentation / vendor URL etc. |
 
-Example `SoftwareList.csv`:
+### Examples
 
+**Winget**
 ```csv
-Publisher;SoftwareName;SubName1;SubName2;PreferredExtension;Arch;UpdateOption;WebLink
-NotepadPlusPlus;NotepadPlusPlus;;;exe;x64;API;
-WinSCP;WinSCP;;;exe;x86;API;
-VendorX;MyApp;;;msi;x64;WEB;https://vendor.example.com/download
-LocalVendor;ToolX;;;exe;x64;LOCAL;
+7zip;7zip;;; .msi;x64;API;Winget;7zip.7zip;;;;
+```
+
+**GitHubRelease**
+```csv
+Chocolatey;ChocolateyGUI;;; .msi;x64;API;GitHubRelease;chocolatey/ChocolateyGUI;;.*x64.*\.msi$;;
+```
+
+**WebDirectory**
+```csv
+VMware;VMwareTools;;; .exe;x64;WEB;WebDirectory;https://packages.vmware.com/tools/esx/latest/windows/x64/;;.*\.exe$;;
+```
+
+**DirectUrl**
+```csv
+Chocolatey;Chocolatey;;; .nupkg;x64;WEB;DirectUrl;https://community.chocolatey.org/api/v2/package/chocolatey;;;;
+```
+
+**Local**
+```csv
+AMD;Adrenalin;;; .exe;x64;LOCAL;Local;;;;True;https://www.amd.com/...
+```
+
+**Office CDN (handled via UpdateMSOffice helper)**
+```csv
+Microsoft;OfficeLTSC2021;ProPlus;;.exe;x64;LOCAL;OfficeCdn;Microsoft.Office.LTSC.2021.ProPlus;;;False;
+Microsoft;OfficeLTSC2021;Standard;;.exe;x64;LOCAL;OfficeCdn;Microsoft.Office.LTSC.2021.Standard;;;False;
 ```
 
 ---
 
-## Client usage (example)
+## MS Office handling (ODT / CDN)
 
-On clients, configure Chocolatey to use your internal feed:
+Modern Office editions require the ODT/CDN approach. This repo supports Office updates by:
+
+1) Running `UpdateMSOffice.ps1` to refresh Office content
+2) Packaging the refreshed content into a ZIP (large files)
+3) Uploading ZIP to ProGet Assets and updating the Chocolatey package to reference it
+
+### Office version tracking
+Office packages use a `tools\version.json` (inside the package source folder) to determine whether a new Office build exists.
+
+This keeps Office versioning independent from ProGet asset naming or nuspec alone.
+
+---
+
+## Large assets (2GB+) upload note
+
+Some Office ZIPs exceed 2GB. For these, the ProGet upload logic uses **.NET HttpClient streaming** to avoid PowerShell memory limits and to achieve good performance.
+
+If you see errors like:
+- `ReadAllBytes ... file is too long ... <2GB limit`
+- `Compress-Archive ... Stream was too long`
+
+Use:
+- HttpClient streaming for upload
+- 7-Zip for creating large archives
+
+---
+
+## Client usage (internal feed example)
 
 ```powershell
-choco source add -n=internal-choco -s "http://PSC-SWREPO1:8624/nuget/internal-choco/"
+choco source add -n=internal -s "https://psc-swrepo1.local:8625/nuget/choco-production/"
 choco source disable -n=chocolatey
 choco install winscp -y
 ```
 
-*(Adapt names/URLs to your environment and policies.)*
+> If your ProGet uses a self-signed certificate, deploy the `.cer` to clients (Trusted Root) or use the helper scripts in this repo.
 
 ---
 
-## Security notes
+## Launchers
 
-- **Do not commit** API keys or tokens to GitHub
+### Managing launcher
+`launcher.bat` provides a menu to:
+- Create new package
+- Update packages (ALL/API/WEB/LOCAL)
+
+### Installation launcher (planned)
+A second launcher can be created for:
+- Chocolatey offline bootstrap
+- Agent/CCM setup
+- Certificate creation/import
+- MDT install helpers
+
+---
+
+## Security guidance
+
+- Never hardcode or commit:
+  - ProGet API keys
+  - GitHub PATs
+  - SQL passwords
 - Prefer:
-  - environment variables
-  - secure secrets store (Credential Manager / vault)
-  - prompted input (your update script already supports prompting)
-- Treat ProGet asset/feed keys as secrets with least privilege:
-  - assets: view/download + upload only if needed
-  - feed: publish only
+  - Prompted input
+  - Environment variables
+  - Credential Manager / vault solutions
+- Use least privilege:
+  - Asset key: upload/download only
+  - Feed key: push only
 
 ---
 
-## Troubleshooting (common)
+## Troubleshooting
 
 ### 401 / 403 from ProGet endpoints
-- Verify you are using the right API key for the right endpoint:
-  - **Asset endpoints** require the **asset API key**
-  - **Feed push** requires the **feed API key**
-- Verify permissions assigned to key in ProGet
+- Confirm you used the right key for the right endpoint:
+  - Asset endpoints use **Asset API key**
+  - Feed push uses **Feed API key**
+- Check permissions assigned in ProGet
 
-### YAML parsing fails
-- Ensure `powershell-yaml` is installed/imported
-- WinGet manifests can change structure; update matching logic if needed
+### GitHubRelease “No asset matched pattern”
+- Confirm `AssetPattern` matches actual release asset names
+- Log available assets and refine regex (recommended)
 
-### URL replacement does not update `$url` / `$url64`
-- Ensure the template contains a line like:
-  - `$url64 = '...'`
-  - `$url = '...'`
-- Ensure the variable name matches your script (`url64` vs `url64bit` are different)
+### LOCAL mode picks the wrong file
+- Ensure the file is actually present in the drop directory
+- Use `ManualVersionRequired=True` when version cannot be read
+- Use `SourceRef` as an additional hint (product key / expected string)
 
-### APPX/MSIX install failures
-- You may need:
-  - `Add-AppxPackage` instead of Chocolatey install helper functions
-  - certificate trust chain installed
-  - provisioning for all users (`Add-AppxProvisionedPackage`)
-  - correct file path handling (avoid invalid path characters)
+### Office ZIP creation fails with “Stream was too long”
+- Use 7-Zip for archive creation instead of `Compress-Archive`
 
 ---
 
-## Roadmap ideas
+## Roadmap
 
-- Add switch: `-EmbedInstaller` vs `-UseProGetUrl`
-- Add templating:
-  - separate install script templates per installer type
-- Add uninstall support for APPX/MSIX (where applicable)
+- Add optional `SpecialHandling` column (future)
+- Improve templating per installer type (exe/msi/msu/msix/appx/zip)
+- Optional “assets-only mode” for teams using ProGet without Chocolatey packaging
+- Richer client bootstrap menu launcher
 
 ---
 
@@ -296,3 +402,4 @@ PRs and issues are welcome. Please include:
 
 > ⚡ *“Automate. Standardize. Simplify.”*  
 > Part of Patrick Scherling’s IT automation suite for modern Windows Server infrastructure management.
+
