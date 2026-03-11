@@ -29,6 +29,9 @@
 .PARAMETER OutDir
   Output directory for exported files (PFX/CER). Default: D:\certs
 
+.PARAMETER PromptAll
+  To force all prompts for input (needed if we call the script via the launcher.bat)
+
 
 .OUTPUTS
   - Writes certificate details (Subject, Thumbprint, NotAfter, FriendlyName) to the console
@@ -53,9 +56,10 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-01-29
+          Modified: 2026-03-11
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
+          Version - 0.0.2 - (2026-03-11) - Optimizing for "inst-launcher.bat"
 
 
 
@@ -70,7 +74,8 @@
 param(
     [Parameter(Mandatory = $false)] [string] $Friendly = "C4B Self-Signed TLS",            # e.g. C4B Self-Signed TLS
     [Parameter(Mandatory = $false)] [int] $Years = 1,                                      # e.g. 1
-    [Parameter(Mandatory = $false)] [string] $OutDir = "D:\certs"                          # e.g. D:\certs
+    [Parameter(Mandatory = $false)] [string] $OutDir = "D:\certs",                         # e.g. D:\certs
+    [Parameter(Mandatory = $false)] [switch] $PromptAll                                    # Force prompting all parameters
 )
 
 $ErrorActionPreference = 'Stop'
@@ -79,6 +84,41 @@ $ErrorActionPreference = 'Stop'
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
   throw "Run PowerShell as Administrator."
+}
+
+###
+### Needed if we use "PromptAll" parameter to check the user input
+###
+function Read-Validated {
+  param(
+    [string]$Prompt,
+    [string[]]$Allowed,
+    $Default = $null
+  )
+
+  while ($true) {
+    $suffix = if ($Default) { " [$Default]" } else { "" }
+    $v = Read-Host "$Prompt$suffix"
+    if ([string]::IsNullOrWhiteSpace($v) -and $Default) { $v = $Default }
+
+    if (-not $Allowed -or $Allowed -contains $v) { return $v }
+
+    Write-Host " Invalid value. Allowed: $($Allowed -join ', ')" -ForegroundColor Yellow
+  }
+}
+
+if($PromptAll){
+  if ([string]::IsNullOrWhiteSpace($Friendly)) {
+      $Friendly = Read-Validated " Enter a friendly name for your certificate (e.g. Self-Signed TLS)" -Default 'C4B Self-Signed TLS'
+  }
+
+  if ([string]::IsNullOrEmpty($Years)) {
+      $Years= Read-Validated " Enter how many years your certificate is valid (e.g. 1)" -Default 1
+  }
+
+  if ([string]::IsNullOrWhiteSpace($OutDir)) {
+      $OutDir = Read-Validated " Enter path where your cert should be exported to (e.g. D:\certs)" -Default 'D:\certs'
+  }
 }
 
 # ====== YOUR ENV SETTINGS ======
