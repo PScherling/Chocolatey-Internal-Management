@@ -2551,7 +2551,7 @@ if($PromptAll){
     }
 
     if ([string]::IsNullOrWhiteSpace($ProGetBaseUrl)) {
-        $ProGetBaseUrl = Read-Host " Enter the base url (e.g. https://psc-swrepo1:8625)"
+        $ProGetBaseUrl = Read-Host " Enter the base url (e.g. https://psc-swrepo1.local:8625)"
     }
 
     if ([string]::IsNullOrWhiteSpace($ProGetAssetDir)) {
@@ -2582,6 +2582,7 @@ if($PromptAll){
 
     $ok = Read-Host " Continue? (Y/N)"
     if ($ok -notin @('Y','y')) { exit }
+	Write-Host ""
 }
 
 
