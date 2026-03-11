@@ -48,6 +48,9 @@
 .PARAMETER ServerFqdn
   Required when -UseSelfSignedCert is specified. The FQDN of the internal repository server
   hosting the \\<ServerFqdn>\certs share.
+
+.PARAMETER PromptAll
+    To force all prompts for input (needed if we call the script via the launcher.bat)
   
 
 .LINK
@@ -63,12 +66,13 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-19
-          Modified: 2026-02-11
+          Modified: 2026-03-11
 
           Version - 0.0.1 - (2026-01-29) - Finalized functional version 1.
 		  Version - 0.0.2 - (2026-01-30) - Name Change
 		  Version - 0.0.3 - (2026-02-10) - Change Parameter "DownloadPath" to "NotMandatory" and set default value
           Version - 0.0.4 - (2026-02-11) - Add new parameter(s) for unattended installation
+		  Version - 0.0.5 - (2026-03-11) - Optimizing for "inst-launcher.bat"
 
 
 .REQUIREMENTS
@@ -105,10 +109,93 @@ param(
   [Parameter(Mandatory = $false)] [string] $IntSourceName,                                                      # e.g. Name for the internal nuget feed like "choco-feed"
   [Parameter(Mandatory = $false)] [int] $Prio = 1,                                                              # e.g. Priority for the new source
   [Parameter(Mandatory = $false)] [switch] $UseSelfSignedCert,                                                  # e.g. Use this switch to provide self signed certificate
-  [Parameter(Mandatory = $false)] [string] $ServerFqdn                                                          # e.g. Internal Repo Server Fqdn like "PSC-SWREPO1.local"                                 
+  [Parameter(Mandatory = $false)] [string] $ServerFqdn,                                                         # e.g. Internal Repo Server Fqdn like "PSC-SWREPO1.local"    
+  [Parameter(Mandatory = $false)] [switch] $PromptAll                                                           # Force prompting all parameters
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Require admin
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
+  throw "Run PowerShell as Administrator."
+}
+
+###
+### Needed if we use "PromptAll" parameter to check the user input
+###
+function Read-Validated {
+  param(
+    [string]$Prompt,
+    [string[]]$Allowed,
+    [string]$Default = $null
+  )
+
+  while ($true) {
+    $suffix = if ($Default) { " [$Default]" } else { "" }
+    $v = Read-Host "$Prompt$suffix"
+    if ([string]::IsNullOrWhiteSpace($v) -and $Default) { $v = $Default }
+
+    if (-not $Allowed -or $Allowed -contains $v) { return $v }
+
+    Write-Host " Invalid value. Allowed: $($Allowed -join ', ')" -ForegroundColor Yellow
+  }
+}
+
+
+
+if($PromptAll){
+	if (-not $UseLocalInstallation) {
+        $choice = Read-Host " Do you want to use a local chocolatey package for installation (y/n)"
+		if($choice -eq "y"){
+			$UseLocalInstallation = $true
+		}
+		elseif{$choice -eq "n"){
+			$UseLocalInstallation = $false
+		}
+		else{
+			Write-Host -ForegroundColor Red " Wrong input" 
+            Read-Host -Prompt "Press 'Enter' to exit"
+            exit
+		}
+    }
+
+	if (-not $UseSelfSignedCert) {
+        $choice = Read-Host " Do you want to provide a self-signed certificate (y/n)"
+		if($choice -eq "y"){
+			$UseSelfSignedCert = $true
+		}
+		elseif{$choice -eq "n"){
+			$UseSelfSignedCert = $false
+		}
+		else{
+			Write-Host -ForegroundColor Red " Wrong input" 
+            Read-Host -Prompt "Press 'Enter' to exit"
+            exit
+		}
+    }
+	
+	if ([string]::IsNullOrWhiteSpace($DownloadPath)) {
+        $DownloadPath = Read-Host " Enter path where the downloaded chocolatey.nupkg will be stored (e.g. C:\_it\SetupFiles)"
+    }
+
+	if ([string]::IsNullOrWhiteSpace($ServerFqdn)) {
+        $ServerFqdn = Read-Host " Enter your server fqdn (e.g. psc-swrepo1.local)"
+    }
+
+	if ([string]::IsNullOrWhiteSpace($InternalUrl) -and -not $UseLocalInstallation) {
+        $InternalUrl = Read-Host " Enter your internal repo url to chocolatey package file (e.g. https://psc-swrepo1.local:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg)"
+    }
+
+	if ([string]::IsNullOrWhiteSpace($IntSourceName)) {
+        $IntSourceName = Read-Host " Enter your package feed name (e.g. choco-feed)"
+    }
+	
+	if ([string]::IsNullOrWhiteSpace($InternalSource)) {
+        $InternalSource = Read-Host " Enter your package feed url (e.g. https://psc-swrepo1.local:8625/nuget/choco-feed/)"
+    }
+
+}
 
 # Enforce: ServerFqdn is required if UseSelfSignedCert is set
 if ($UseSelfSignedCert -and [string]::IsNullOrWhiteSpace($ServerFqdn)) {
@@ -124,6 +211,8 @@ if ($UseLocalInstallation -and $InternalUrl) {
 if ($InternalSource -xor $IntSourceName) {
     throw "Both -InternalSource and -IntSourceName must be provided together."
 }
+
+
 
 # Downloading File
 function Start-DownloadInstallerFile {
@@ -155,11 +244,7 @@ function Start-DownloadInstallerFile {
 
 }
 
-# Require admin
-$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
-  throw "Run PowerShell as Administrator."
-}
+
 
 # Import SelfSigned Server Certificate
 if($UseSelfSignedCert){
