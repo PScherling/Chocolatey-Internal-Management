@@ -210,7 +210,9 @@ if (Get-Module -ListAvailable -Name PSReadLine) {
 }
 
 
-
+###
+### Needed if we use "PromptAll" parameter to check the user input
+###
 function Read-Validated {
   param(
     [string]$Prompt,
