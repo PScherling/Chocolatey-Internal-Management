@@ -336,7 +336,7 @@ A second launcher that provides:
 - Agent/CCM setup
 - Certificate creation/import
 - MDT install helpers
-<img width="1113" height="626" alt="image" src="https://github.com/user-attachments/assets/301ebcea-2173-43c1-90fb-df6d9598ec3e" />
+<img width="1113" height="626" alt="image" src="https://github.com/user-attachments/assets/72076459-6d37-46af-8929-a33b2314a4ca" />
 
 ---
 
