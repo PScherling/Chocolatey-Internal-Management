@@ -33,7 +33,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-18
-          Modified: 2026-03-04
+          Modified: 2026-03-12
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Path Structure
@@ -43,6 +43,12 @@
           Version - 0.0.6 - (2026-02-26) - Minor Bug-Fixes and improve compatibillity with 'UpdateSoftwarePAckages.ps1'
           Version - 0.0.7 - (2026-03-03) - Changing the way of creating zip archive. (Changing to use 7zip instead of compress-archive)
           Version - 0.0.8 - (2026-03-04) - Adaption 7-Zip CLI Arguments to silence the console output.
+          Version - 0.0.9 - (2026-03-12) - Run into a bug if I use "SourcePath" for the installation. So I need to seperate this. 
+                                            I need to change the zipping workflow to have this structire:
+                                                |- Setup.exe
+                                                |- config.xml
+                                                |- Office
+                                                    |_ Data
           
 
           TODO:
@@ -112,7 +118,7 @@ if($RunNotStandalone){
     }
     elseif($OfficeKey -like "*LTSC*2024*ProPlus" -or $OfficeKey -like "*LTSC*2024*Pro Plus" -or $OfficeKey -like "*LTSC*2024*Pro-Plus"){
         $installations = @(
-            @{ Name = "Office LTSC 2024 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2024"; XML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus.xml" }
+            @{ Name = "Office LTSC 2024 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus_install.xml" }
         )
     }
     else {
@@ -123,10 +129,10 @@ else{
     $installations = @(
         #@{ Name = "Office 2019 Pro Plus"; Path = "$($downloadPath)\Office2019ProPlus"; XML = "$($downloadPath)\Office2019ProPlus\office_19_proplus.xml" },
         #@{ Name = "Office 2019 Standard"; Path = "$($downloadPath)\Office2019Standard"; XML = "$($downloadPath)\Office2019Standard\office_19_std.xml" },
-        @{ Name = "Office LTSC 2021 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2021"; XML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus.xml" },
-        @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; XML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std.xml" },
-        @{ Name = "Office LTSC 2024 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2024"; XML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus.xml" },
-        @{ Name = "Office LTSC 2024 Standard"; Path = "$($downloadPath)\OfficeLTSC2024"; XML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std.xml" }
+        @{ Name = "Office LTSC 2021 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus.xml" },
+        @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std.xml" },
+        @{ Name = "Office LTSC 2024 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus_install.xml" },
+        @{ Name = "Office LTSC 2024 Standard"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std.xml" }
     )
     
 }
@@ -193,11 +199,12 @@ function Get-OfficeContentVersion {
 
 function New-OfficePackageZip {
     param(
-        [Parameter(Mandatory)] [string] $ItemPath,      # e.g. E:\...\Downloads\OfficeLTSC2021ProPlus
-        [Parameter(Mandatory)] [string] $OfficeName,    # e.g. OfficeLTSC2021
-        [Parameter(Mandatory)] [string] $Edition,       # ProPlus or Standard
-        [Parameter(Mandatory)] [string] $Version,       # 16.0.xxxxx.xxxxx
-        [Parameter(Mandatory)] [string] $DownloadPath
+        [Parameter(Mandatory)] [string] $ItemPath,         # e.g. E:\...\Downloads\OfficeLTSC2021ProPlus
+        [Parameter(Mandatory)] [string] $OfficeName,       # e.g. OfficeLTSC2021
+        [Parameter(Mandatory)] [string] $Edition,          # ProPlus or Standard
+        [Parameter(Mandatory)] [string] $Version,          # 16.0.xxxxx.xxxxx
+        [Parameter(Mandatory)] [string] $DownloadPath,
+        [Parameter(Mandatory)] [string] $InstallXmlPath    # explicit install XML to place into ZIP
     )
 
     $zipName = "{0}_{1}_{2}.zip" -f $OfficeName, $Edition, $Version
@@ -215,11 +222,23 @@ function New-OfficePackageZip {
 
         $setupExe = Join-Path $ItemPath "setup.exe"
         if (-not (Test-Path $setupExe)) {
-            throw "setup.exe not found in '$ItemPath'"
+            throw "setup.exe not found in '$($ItemPath)'"
+        }
+
+        if (-not (Test-Path $InstallXmlPath)) {
+            throw "Install XML not found: '$($InstallXmlPath)'"
+        }
+
+        $officeSourceFolder = Join-Path $ItemPath "$Edition\Office"
+        if (-not (Test-Path $officeSourceFolder)) {
+            throw "Office source folder not found: '$($officeSourceFolder)'"
         }
 
         Copy-Item $setupExe -Destination (Join-Path $stageRoot "setup.exe") -Force
+        Copy-Item $InstallXmlPath -Destination (Join-Path $stageRoot ([System.IO.Path]::GetFileName($InstallXmlPath))) -Force
+        Copy-Item $officeSourceFolder -Destination (Join-Path $stageRoot "Office") -Recurse -Force
 
+        <#
         # Copy XML(s) - if there are multiple, copy all office*.xml
         Get-ChildItem -Path $ItemPath -Filter "*.xml" -File -ErrorAction SilentlyContinue | ForEach-Object {
             Copy-Item $_.FullName -Destination (Join-Path $stageRoot $_.Name) -Force
@@ -231,6 +250,7 @@ function New-OfficePackageZip {
         }
 
         Copy-Item $editionFolder -Destination (Join-Path $stageRoot $Edition) -Recurse -Force
+        #>
 
         if (Test-Path $zipPath) {
             Remove-Item $zipPath -Force
@@ -255,12 +275,7 @@ function New-OfficePackageZip {
             "*"
         )
 
-        $proc = Start-Process -FilePath $sevenZip `
-                              -ArgumentList $arguments `
-                              -WorkingDirectory $stageRoot `
-                              -Wait `
-                              -PassThru `
-                              -NoNewWindow
+        $proc = Start-Process -FilePath $sevenZip -ArgumentList $arguments -WorkingDirectory $stageRoot -Wait -PassThru -NoNewWindow
 
         if ($proc.ExitCode -eq 0) {
             Write-Host -ForegroundColor Green "    Archive created successfully"
@@ -268,7 +283,7 @@ function New-OfficePackageZip {
         elseif($proc.ExitCode -eq 1) {
             Write-Host -ForegroundColor Yellow "    Warning (Non fatal error): For example, one or more files were locked by some other application, so they were not compressed. Exit code: $($proc.ExitCode)"
         }
-        elseif ($proc.ExitCode -ne 0 -or $proc.ExitCode -ne 1) {
+        else {
             throw "7-Zip failed with exit code $($proc.ExitCode)"
         }
 
@@ -354,8 +369,8 @@ foreach ($item in $installations) {
     }
 
     # Start download
-    Write-Log "Starting download with: $($item.XML)"
-    Write-Host "    Starting download with: $($item.XML)" -ForegroundColor Green
+    Write-Log "Starting download with: $($item.DWNXML)"
+    Write-Host "    Starting download with: $($item.DWNXML)" -ForegroundColor Green
     Write-Host "    This may take some time..." -ForegroundColor Yellow
 
     if($WhatIf){
@@ -364,7 +379,7 @@ foreach ($item in $installations) {
     }
     else{
         try{
-            Start-Process -FilePath "$($item.Path)\setup.exe" -ArgumentList "/download $($item.XML)" -WorkingDirectory $item.Path -Wait
+            Start-Process -FilePath "$($item.Path)\setup.exe" -ArgumentList "/download $($item.DWNXML)" -WorkingDirectory $item.Path -Wait
         } catch{
             $success = $false
             Write-Error "Download of new Office files could not be started - $_"
@@ -401,7 +416,8 @@ foreach ($item in $installations) {
                         -OfficeName (($item.Name -replace ' ', '') -replace 'ProPlus|Standard','') `
                         -Edition $edition `
                         -Version $officeVersion `
-                        -DownloadPath $downloadPath
+                        -DownloadPath $downloadPath `
+                        -InstallXmlPath $item.INSTXML
 
                     $packageFileName = if ($packageZip) { [System.IO.Path]::GetFileName($packageZip) } else { $null }
 
