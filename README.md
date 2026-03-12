@@ -285,8 +285,67 @@ Microsoft;OfficeLTSC2021;Standard;;.exe;x64;LOCAL;OfficeCdn;Microsoft.Office.LTS
 Modern Office editions require the ODT/CDN approach. This repo supports Office updates by:
 
 1) Running `UpdateMSOffice.ps1` to refresh Office content
-2) Packaging the refreshed content into a ZIP (large files)
-3) Uploading ZIP to ProGet Assets and updating the Chocolatey package to reference it
+2) Seperated XML configuration files needed! One for downloading the office data and one for installing MS Office
+3) Packaging the refreshed content into a ZIP (large files)
+4) Uploading ZIP to ProGet Assets and updating the Chocolatey package to reference it
+
+Directory Structure you need:
+```
+|_ ChocoManage
+  |_ temp
+    |_ Downloads
+      |_ OfficeLTSC2024
+        |- office_ltsc_24_proplus_download.xml
+        |- office_ltsc_24_proplus_install.xml
+        |- office_ltsc_24_std_download.xml
+        |- office_ltsc_24_std_install.xml
+        |- setup.exe
+        |- ProPlus
+          |_ Office
+        |_ Standard
+          |_ Office
+```
+
+### Sample Download XML file
+```
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="PerpetualVL2024" AllowCdnFallback="FALSE" SourcePath=".\Standard">
+    <Product ID="Standard2024Volume" PIDKEY="YOUR-KEY">
+      <Language ID="de-de" />
+      <Language ID="en-us" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="Groove" />
+    </Product>
+  </Add>
+  <RemoveMSI />
+  <Property Name="AUTOACTIVATE" Value="0" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
+  <Updates Enabled="TRUE" />
+  <Display Level="None" AcceptEULA="TRUE" />
+  <Logging Level="Standard" Path="%localappdata%\Temp\" />
+</Configuration>
+```
+
+### Sample Installation XML file
+Important! There is no 'SourcePath' included.
+```
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="PerpetualVL2024" AllowCdnFallback="FALSE">
+    <Product ID="Standard2024Volume" PIDKEY="YOUR-KEY">
+      <Language ID="de-de" />
+      <Language ID="en-us" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="Groove" />
+    </Product>
+  </Add>
+  <RemoveMSI />
+  <Property Name="AUTOACTIVATE" Value="0" />
+  <Property Name="FORCEAPPSHUTDOWN" Value="TRUE" />
+  <Updates Enabled="TRUE" />
+  <Display Level="None" AcceptEULA="TRUE" />
+  <Logging Level="Standard" Path="%localappdata%\Temp\" />
+</Configuration>
+```
 
 ### Office version tracking
 Office packages use a `tools\version.json` (inside the package source folder) to determine whether a new Office build exists.
