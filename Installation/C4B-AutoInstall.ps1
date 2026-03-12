@@ -255,6 +255,20 @@ if($PromptAll){
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
         )
     }
+
+	Write-Host ""
+    Write-Host "=== Summary ===" -ForegroundColor Magenta
+    Write-Host " Chocolatey License:    $LicensePath"
+    Write-Host " Business ID:           $BusinessLicenseGuid"
+    Write-Host " Used protocol:         $Protocol"
+    Write-Host " Used ProGet port:      $ProGetPort"
+    Write-Host " Package feed name:     $FeedName"
+    Write-Host " DB login method:       $DBLoginMethod"
+    Write-Host " DB user:               $DBUser"
+    Write-Host ""
+
+    $ok = Read-Host " Continue? (Y/N)"
+    if ($ok -notin @('Y','y')) { exit }
 }
 
 
