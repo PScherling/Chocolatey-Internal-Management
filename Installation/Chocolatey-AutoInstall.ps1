@@ -186,6 +186,9 @@ if($PromptAll){
 	if ([string]::IsNullOrWhiteSpace($InternalUrl) -and -not $UseLocalInstallation) {
       $InternalUrl = Read-Host " Enter your internal repo url to chocolatey package file (e.g. https://psc-swrepo1.local:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg)"
   }
+  else{
+    $InternalUrl = "None"
+  }
 
 	if ([string]::IsNullOrWhiteSpace($IntSourceName)) {
       $IntSourceName = Read-Host " Enter your package feed name (e.g. choco-feed)"
@@ -195,6 +198,20 @@ if($PromptAll){
       $InternalSource = Read-Host " Enter your package feed url (e.g. https://psc-swrepo1.local:8625/nuget/choco-feed/)"
   }
 
+
+  Write-Host ""
+  Write-Host "=== Summary ===" -ForegroundColor Magenta
+  Write-Host " Use local installation file:    $UseLocalInstallation"
+  Write-Host " Use Self-Signed Cert:           $UseSelfSignedCert"
+  Write-Host " Download path:                  $DownloadPath"
+  Write-Host " Server Fqdn:                    $ServerFqdn"
+  Write-Host " Asset Url:                      $InternalUrl"
+  Write-Host " Package feed name:              $IntSourceName"
+  Write-Host " Package feed Url:               $InternalSource"
+  Write-Host ""
+
+  $ok = Read-Host " Continue? (Y/N)"
+  if ($ok -notin @('Y','y')) { exit }
 }
 
 # Enforce: ServerFqdn is required if UseSelfSignedCert is set
