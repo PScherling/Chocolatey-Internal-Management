@@ -310,7 +310,7 @@ $CcmServicePort     = 24020
 # CCM Service URL clients will talk to
 $CcmServiceUrl      = "https://$($ServerFqdn):$($CcmServicePort)/ChocolateyManagementService"
 
-$pkgDir             = "D:\SetupFiles\Packages"
+$pkgDir             = "C:\_psc\SetupFiles\Packages"
 
 $LicensePath = Convert-Path $LicensePath
 $licDir = Join-Path $env:ProgramData "chocolatey\license"
