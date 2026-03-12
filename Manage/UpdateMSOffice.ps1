@@ -74,7 +74,8 @@ param(
     [Parameter(Mandatory = $false)] [string] $BaseDir = "E:\ChocoManage",
     [Parameter(Mandatory = $false)] [switch] $RunNotStandalone,                                                              # e.g. in case you want to run this script not in standalone mode
     [Parameter(Mandatory = $false)] [switch] $ReturnObject,                                                                  # called to return a real object
-    [Parameter(Mandatory = $false)] [switch] $WhatIf                                                                         # Switch to run everything except downloading
+    [Parameter(Mandatory = $false)] [switch] $WhatIf,                                                                        # Switch to run everything except downloading
+    [Parameter(Mandatory = $false)] [switch] $ForceFullDownload                                                              # This switch forces the script to remove the existing 'Office' directory and redownload the whole package
 )
 
 
@@ -103,7 +104,7 @@ if($RunNotStandalone){
     }
     elseif($OfficeKey -like "*LTSC*2021*Standard" -or $OfficeKey -like "*LTSC*2021*Std"){
         $installations = @(
-            @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_standard_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std_install.xml" }
+            @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std_install.xml" }
         )
     }
     elseif($OfficeKey -like "*LTSC*2021*ProPlus" -or $OfficeKey -like "*LTSC*2021*Pro Plus" -or $OfficeKey -like "*LTSC*2021*Pro-Plus"){
@@ -347,13 +348,14 @@ foreach ($item in $installations) {
 	#Write-Host -ForegroundColor Magenta "DEBUG: $($officeRootFull)"
 
     if (Test-Path $officeRootFull) {
-        Write-Host "    Removing existing 'Office' folder..." -ForegroundColor Gray
-        Write-Log "Removing existing 'Office' folder..."
+       
         if($WhatIf){
             Write-Host "    WHATIF Enabled -> Removing existing 'Office' folder will be ignored!" -ForegroundColor Yellow
             Write-Log "WARNING: WHATIF Enabled -> Removing existing 'Office' folder will be ignored!"
         }
-        else{
+        elseif($ForceFullDownload){
+            Write-Host "    Removing existing 'Office' folder..." -ForegroundColor Gray
+            Write-Log "Removing existing 'Office' folder..."
             try{
                 Remove-Item -Path "$($officeRootFull)" -Recurse -Force #-Verbose
             }
@@ -363,9 +365,13 @@ foreach ($item in $installations) {
                 exit 1
             }
         }
+        else {
+            Write-Host "    Existing 'Office' folder found. Reusing local source for incremental download." -ForegroundColor DarkGray
+            Write-Log "Existing 'Office' folder found. Reusing local source for incremental download."
+        }
     } else {
-        Write-Host "    'Office' folder not found, skipping removal." -ForegroundColor DarkGray
-        Write-Log "WARNING: 'Office' folder not found, skipping removal."
+        Write-Host "    'Office' folder not found. Initial download will create it." -ForegroundColor DarkGray
+        Write-Log "WARNING: 'Office' folder not found. Initial download will create it."
     }
 
     # Start download
