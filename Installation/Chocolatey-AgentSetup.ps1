@@ -137,6 +137,16 @@ if($PromptAll){
   if ([string]::IsNullOrWhiteSpace($ServerFqdn)) {
     $ServerFqdn = Read-Host " Enter the repo server fqdn (e.g. psc-swrepo1.local)"
   }
+
+  Write-Host ""
+  Write-Host "=== Summary ===" -ForegroundColor Magenta
+  Write-Host " Use Self-Signed Cert:  $UseSelfSignedCert"
+  Write-Host " Server Fqdn:           $ServerFqdn"
+  Write-Host ""
+
+  $ok = Read-Host " Continue? (Y/N)"
+  if ($ok -notin @('Y','y')) { exit }
+  
 }
 
 # Find FDQN for current machine
