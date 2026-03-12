@@ -102,7 +102,7 @@
 #>
 
 param( 
-  [Parameter(Mandatory = $false)] [string] $DownloadPath = "C:\_it\SetupFiles",                                 # e.g. D:\SetupFiles
+  [Parameter(Mandatory = $false)] [string] $DownloadPath = "C:\_psc\SetupFiles",                                 # e.g. D:\SetupFiles
   [Parameter(Mandatory = $false)] [switch] $UseLocalInstallation,                                               # e.g. Use this switch if you don't want to "download" the nupkg file from an intenral server and use a local file isntead
   [Parameter(Mandatory = $false)] [string] $InternalUrl,                                                        # e.g. your internal repo like "https://psc-swrepo1:8625/endpoints/assets/content/Chocolatey/Chocolatey/chocolatey.2.6.0.nupkg"
   [Parameter(Mandatory = $false)] [string] $InternalSource,                                                     # e.g. your internal nuget source url like "https://psc-swrepo1.local:8625/nuget/choco-feed/"
