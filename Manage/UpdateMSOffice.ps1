@@ -93,27 +93,27 @@ if($RunNotStandalone){
     #Write-Host -ForegroundColor Magenta "DEBUG: $($BaseDir) | $($logDir) | $($downloadPath)"
     if($OfficeKey -like "*2019*Standard" -or $OfficeKey -like "*2019*Std"){
         $installations = @(
-            @{ Name = "Office 2019 Standard"; Path = "$($downloadPath)\Office2019"; XML = "$($downloadPath)\OfficeLTSC2021\office_19_std.xml" }
+            @{ Name = "Office 2019 Standard"; Path = "$($downloadPath)\Office2019"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_19_std_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2021\office_19_std_install.xml" }
         )
     }
     elseif($OfficeKey -like "*2019*ProPlus" -or $OfficeKey -like "*2019*Pro Plus"){
         $installations = @(
-            @{ Name = "Office 2019 Pro Plus"; Path = "$($downloadPath)\Office2019"; XML = "$($downloadPath)\OfficeLTSC2021\office_19_proplus.xml" }
+            @{ Name = "Office 2019 Pro Plus"; Path = "$($downloadPath)\Office2019"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_19_proplus_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2021\office_19_proplus_install.xml" }
         )
     }
     elseif($OfficeKey -like "*LTSC*2021*Standard" -or $OfficeKey -like "*LTSC*2021*Std"){
         $installations = @(
-            @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; XML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std.xml" }
+            @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_standard_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std_install.xml" }
         )
     }
     elseif($OfficeKey -like "*LTSC*2021*ProPlus" -or $OfficeKey -like "*LTSC*2021*Pro Plus" -or $OfficeKey -like "*LTSC*2021*Pro-Plus"){
         $installations = @(
-            @{ Name = "Office LTSC 2021 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2021"; XML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus.xml" }
+            @{ Name = "Office LTSC 2021 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus_install.xml" }
         )
     }
     elseif($OfficeKey -like "*LTSC*2024*Standard" -or $OfficeKey -like "*LTSC*2024*Std"){
         $installations = @(
-            @{ Name = "Office LTSC 2024 Standard"; Path = "$($downloadPath)\OfficeLTSC2024"; XML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std.xml" }
+            @{ Name = "Office LTSC 2024 Standard"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std_install.xml" }
         )
     }
     elseif($OfficeKey -like "*LTSC*2024*ProPlus" -or $OfficeKey -like "*LTSC*2024*Pro Plus" -or $OfficeKey -like "*LTSC*2024*Pro-Plus"){
@@ -129,10 +129,10 @@ else{
     $installations = @(
         #@{ Name = "Office 2019 Pro Plus"; Path = "$($downloadPath)\Office2019ProPlus"; XML = "$($downloadPath)\Office2019ProPlus\office_19_proplus.xml" },
         #@{ Name = "Office 2019 Standard"; Path = "$($downloadPath)\Office2019Standard"; XML = "$($downloadPath)\Office2019Standard\office_19_std.xml" },
-        @{ Name = "Office LTSC 2021 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus.xml" },
-        @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std.xml" },
+        @{ Name = "Office LTSC 2021 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_proplus_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_21_proplus_install.xml" },
+        @{ Name = "Office LTSC 2021 Standard"; Path = "$($downloadPath)\OfficeLTSC2021"; DWNXML = "$($downloadPath)\OfficeLTSC2021\office_ltsc_21_std_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_21_std_install.xml" },
         @{ Name = "Office LTSC 2024 Pro Plus"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_proplus_install.xml" },
-        @{ Name = "Office LTSC 2024 Standard"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std.xml" }
+        @{ Name = "Office LTSC 2024 Standard"; Path = "$($downloadPath)\OfficeLTSC2024"; DWNXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std_download.xml"; INSTXML = "$($downloadPath)\OfficeLTSC2024\office_ltsc_24_std_install.xml" }
     )
     
 }
