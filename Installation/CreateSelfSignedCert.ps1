@@ -119,6 +119,16 @@ if($PromptAll){
   if ([string]::IsNullOrWhiteSpace($OutDir)) {
       $OutDir = Read-Validated " Enter path where your cert should be exported to (e.g. D:\certs)" -Default 'D:\certs'
   }
+
+  Write-Host ""
+  Write-Host "=== Summary ===" -ForegroundColor Magenta
+  Write-Host " Frienldy Name:             $Friendly"
+  Write-Host " Valid duration (years):    $Years"
+  Write-Host " Export path:               $OutDir"
+  Write-Host ""
+
+  $ok = Read-Host " Continue? (Y/N)"
+  if ($ok -notin @('Y','y')) { exit }
 }
 
 # ====== YOUR ENV SETTINGS ======
