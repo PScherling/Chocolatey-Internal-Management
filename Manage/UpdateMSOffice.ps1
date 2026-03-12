@@ -371,7 +371,7 @@ foreach ($item in $installations) {
     # Start download
     Write-Log "Starting download with: $($item.DWNXML)"
     Write-Host "    Starting download with: $($item.DWNXML)" -ForegroundColor Green
-    Write-Host "    This may take some time..." -ForegroundColor Yellow
+    Write-Host "    Grab a coffee, this may take some time..." -ForegroundColor Yellow
 
     if($WhatIf){
         Write-Host "    WHATIF Enabled -> Download of new Office files will be ignored!" -ForegroundColor Yellow
@@ -388,11 +388,11 @@ foreach ($item in $installations) {
     }
 
     if($success){
-        Write-Log "Finished: $($item.Name)"
-        Write-Host "    Finished: $($item.Name)" -ForegroundColor Green
+        Write-Log "Finished download: $($item.Name)"
+        Write-Host "    Finished download: $($item.Name)" -ForegroundColor Green
     } else{
-        Write-Log "Finished with errors: $($item.Name)"
-        Write-Host "    Finished with errors: $($item.Name)" -ForegroundColor Red
+        Write-Log "Finished download with errors: $($item.Name)"
+        Write-Host "    Finished download with errors: $($item.Name)" -ForegroundColor Red
     }
     if($RunNotStandalone){
         $officeVersion = Get-OfficeContentVersion -OfficeRootPath $officeRootFull
@@ -405,7 +405,8 @@ foreach ($item in $installations) {
         $packageZip = $null
         #if ($success -and -not $WhatIf) {
         if ($success) {
-            
+            Write-Log "Creating new zip archive"
+            Write-Host "    Creating new zip archive..."
             
             $zipFile = Get-ChildItem -Filter "*.zip" -Path "$($downloadPath)" | where-object { $_.BaseName -eq "$($software.SoftwareName)_$($edition)_$($officeVersion)" }
             
