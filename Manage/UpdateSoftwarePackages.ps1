@@ -1330,6 +1330,10 @@ function Publish-ChocoPackageToProGet {
             Write-Log "ERROR: No .nupkg created in $PackageSourceDir - $_" 
             Write-TrackedError "ERROR: No .nupkg created in $PackageSourceDir - $_"
         }
+		else{
+			Write-Log "Selected .nupkg: $($nupkg.FullName)"
+			Write-Host "    Selected .nupkg: $($nupkg.FullName)"
+		}
 
         choco push $nupkg.FullName --source="$PushUrl" --api-key="$Key" --force | Out-Null
         return $nupkg.FullName
