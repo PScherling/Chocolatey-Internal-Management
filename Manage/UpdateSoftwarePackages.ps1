@@ -1317,8 +1317,8 @@ function Publish-ChocoPackageToProGet {
         Write-TrackedError "ERROR: Could not push current location - $_"
     }
 
-    Write-Log "Attempting to create new package and push it to ProGet feed"
-    Write-Host -ForegroundColor Green "    Attempting to create new package and push it to ProGet feed"
+    Write-Log "Attempt to create new package and push it to ProGet feed"
+    Write-Host -ForegroundColor Green "    Attempt to create new package and push it to ProGet feed"
     try {
         choco pack | Out-Null
 
@@ -1334,10 +1334,14 @@ function Publish-ChocoPackageToProGet {
 			Write-Log "Selected .nupkg: $($nupkg.FullName)"
 			Write-Host "    Selected .nupkg: $($nupkg.FullName)"
 		}
-
+		
         choco push "$($nupkg.FullName)" --source="$($PushUrl)" --api-key="$($Key)" --force | Out-Null
         return $nupkg.FullName
     }
+	catch{
+		Write-Log "ERROR: Could not push new choco package - $_"
+        Write-TrackedError "ERROR: Could not push new choco package - $_"
+	}
     finally {
         Pop-Location
     }
