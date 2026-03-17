@@ -1335,7 +1335,7 @@ function Publish-ChocoPackageToProGet {
 			Write-Host "    Selected .nupkg: $($nupkg.FullName)"
 		}
 
-        choco push $nupkg.FullName --source="$PushUrl" --api-key="$Key" --force | Out-Null
+        choco push "$($nupkg.FullName)" --source="$($PushUrl)" --api-key="$($Key)" --force | Out-Null
         return $nupkg.FullName
     }
     finally {
