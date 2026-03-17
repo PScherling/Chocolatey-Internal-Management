@@ -1339,8 +1339,8 @@ function Publish-ChocoPackageToProGet {
         return $nupkg.FullName
     }
 	catch{
-		Write-Log "ERROR: Could not push new choco package - $_"
-        Write-TrackedError "ERROR: Could not push new choco package - $_"
+		Write-Log "ERROR: Could not pack or push new choco package - $_"
+        Write-TrackedError "ERROR: Could not pack push new choco package - $_"
 	}
     finally {
         Pop-Location
