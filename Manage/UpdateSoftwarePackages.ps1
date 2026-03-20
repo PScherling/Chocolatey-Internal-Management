@@ -2556,9 +2556,6 @@ if($PromptAll){
 			$GitToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
 				[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
 			)
-			if($GitToken){
-				Write-Host -ForegroundColor Magenta "DEBUG: $GitToken"
-			}
 		}
 	}
 
@@ -2567,9 +2564,6 @@ if($PromptAll){
         $ProGetFeedApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
         )
-		if($ProGetFeedApiKey){
-			Write-Host -ForegroundColor Magenta "DEBUG: $ProGetFeedApiKey"
-		}
     }
 
 	if ([string]::IsNullOrWhiteSpace($ProGetChocoFeedName)) {
@@ -2581,9 +2575,6 @@ if($PromptAll){
         $ProGetAssetApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
         )
-		if($ProGetAssetApiKey){
-			Write-Host -ForegroundColor Magenta "DEBUG: $ProGetAssetApiKey"
-		}
     }
 
 	if ([string]::IsNullOrWhiteSpace($ProGetAssetDir)) {
