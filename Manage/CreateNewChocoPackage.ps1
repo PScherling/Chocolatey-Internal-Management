@@ -79,6 +79,9 @@
 .PARAMETER ProGetFeedKey
     ProGet API key with permission to publish packages to the specified feed (NOT the assets directory).
 
+.PARAMETER PromptAll
+    To force all prompts for input (needed if we call the script via the launcher.bat)
+
 .LINK
 	https://github.com/microsoft/winget-pkgs  
     https://docs.chocolatey.org/en-us/guides/
@@ -94,11 +97,12 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2026-01-20
-          Modified: 2026-03-09
+          Modified: 2026-03-20
 
 		  Version - 0.0.1 - (2026-01-23) - Finalized functional version 1.
 		  Version - 0.0.2 - (2026-02-06) - Bug Fixing.
-          Version - 0.0.3 - (2026-03-09) - Optimizing for "launscher.bat"
+          Version - 0.0.3 - (2026-03-09) - Optimizing for "launcher.bat"
+          Version - 0.0.4 - (2026-03-09) - Bugfix in case we call "PropmtAll" if the script is started via launcher.bat
           
 
           TODO:
