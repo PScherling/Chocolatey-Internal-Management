@@ -41,7 +41,7 @@
     API Key for accessing the ProGet asset repository where installer files are stored.
 
 .PARAMETER ProGetBaseUrl
-    Base URL of the ProGet server including the specified port (e.g., http://PSC-SWREPO1:8624).
+    Base URL of the ProGet server including the specified port (e.g., https://PSC-SWREPO1.local:8625).
 
 .PARAMETER ProGetAssetDir
     Name of the ProGet asset directory (e.g., choco-assets).   
@@ -75,7 +75,7 @@
           Contact: @Patrick Scherling
           Primary: @Patrick Scherling
           Created: 2025-07-16
-          Modified: 2026-03-11
+          Modified: 2026-03-20
 
           Version - 0.0.1 - () - Finalized functional version 1.
           Version - 0.0.2 - () - Adapting Software Directory Structure.
@@ -150,6 +150,7 @@
           Version - 0.1.7 - (2026-03-11) - Optimizing "PromptAll" functionality
           Version - 0.1.8 - (2026-03-11) - Encountered a bug if we are Updateing Office packages. as we are handling this as "zip", we are overriting the "filetype" in the chocoinstall script to "zip". But there are only "exe", "msi" or "msu" as a value allowed.
                                             In fact we are setting the "InstallerType" by creating the package with "CreateNewChocoPackage.ps1" so I think we don't need to "override" the fyletype in the instalaltion script of the chocolatey package.
+          Version - 0.1.9 - (2026-03-20) - Bugfix in case we call "PropmtAll" if the script is started via launcher.bat
 
           TODO:
 
@@ -1334,7 +1335,14 @@ function Publish-ChocoPackageToProGet {
 			Write-Log "Selected .nupkg: $($nupkg.FullName)"
 			Write-Host "    Selected .nupkg: $($nupkg.FullName)"
 		}
-		
+
+        <#
+		Write-Host -ForegroundColor Magenta "DEBUG: $($nupkg.FullName)"
+        Write-Host -ForegroundColor Magenta "DEBUG: $($PushUrl)"
+        Write-Host -ForegroundColor Magenta "DEBUG: $($Key)"
+        #Read-Host -Prompt "Press 'Enter' to continue"
+        #>
+
         choco push "$($nupkg.FullName)" --source="$($PushUrl)" --api-key="$($Key)" --force | Out-Null
         return $nupkg.FullName
     }
@@ -2367,7 +2375,7 @@ function Invoke-EnterprisePackageUpdate {
             else{
                 Write-Host -ForegroundColor Red "    New File publish failed in ProGet Assets"
                 Write-Log "New File publish failed in ProGet Assets"
-            }
+            } 
             if($updNuspec -eq 1){
                 Write-Host -ForegroundColor Green "    Chocolatey 'nuspec' file updated successfully"
                 Write-Log "Chocolatey 'nuspec' file updated successfully"
@@ -2542,19 +2550,26 @@ Write-Host -ForegroundColor Cyan "
 "
 
 if($PromptAll){
-
-    if ([string]::IsNullOrWhiteSpace($GitToken -and $UpdateOption -eq "API")) {
-        $secKey = Read-Host " Enter your api key for GitHub" -AsSecureString
-        $GitToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
-        )
-    }
+	if($UpdateOption -eq "API"){
+		if ([string]::IsNullOrWhiteSpace($GitToken)) {
+			$secKey = Read-Host " Enter your api key for GitHub" -AsSecureString
+			$GitToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+				[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
+			)
+			if($GitToken){
+				Write-Host -ForegroundColor Magenta "DEBUG: $GitToken"
+			}
+		}
+	}
 
     if ([string]::IsNullOrWhiteSpace($ProGetFeedApiKey)) {
         $secKey = Read-Host " Enter the api key to your package feed" -AsSecureString
         $ProGetFeedApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
         )
+		if($ProGetFeedApiKey){
+			Write-Host -ForegroundColor Magenta "DEBUG: $ProGetFeedApiKey"
+		}
     }
 
 	if ([string]::IsNullOrWhiteSpace($ProGetChocoFeedName)) {
@@ -2566,6 +2581,9 @@ if($PromptAll){
         $ProGetAssetApiKey = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secKey)
         )
+		if($ProGetAssetApiKey){
+			Write-Host -ForegroundColor Magenta "DEBUG: $ProGetAssetApiKey"
+		}
     }
 
 	if ([string]::IsNullOrWhiteSpace($ProGetAssetDir)) {
@@ -2585,12 +2603,15 @@ if($PromptAll){
         }
     }
 
+    $ProGetChocoPushUrl = "$($ProGetBaseUrl)/nuget/$($ProGetChocoFeedName)"
+
     Write-Host ""
     Write-Host "=== Summary ===" -ForegroundColor Magenta
     Write-Host " Update Option:     $UpdateOption"
     Write-Host " Base Url:          $ProGetBaseUrl"
     Write-Host " Asset Name:        $ProGetAssetDir"
     Write-Host " Feed Name:         $ProGetChocoFeedName"
+    Write-Host " PushUrl:           $ProGetChocoPushUrl"
     Write-Host " Choco Packages:    $ChocoPackageSourceRoot"
     Write-Host ""
 
